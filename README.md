@@ -23,13 +23,16 @@ The files are :
 ### Development documentation and tutorial
 
 - Tailwind [link](https://tailwindcss.com/docs/installation)
-- Combining tailwind ans sass loader[https://stackoverflow.com/questions/55606865/combining-tailwind-css-with-sass-using-webpack]
-- Detect MetaMask account change[https://stackoverflow.com/questions/70663898/my-dapp-doesnt-detect-when-an-user-change-their-metamask-account]
-- useState not refélecting changes[https://stackoverflow.com/questions/54069253/the-usestate-set-method-is-not-reflecting-a-change-immediately]
-- React hooks[https://legacy.reactjs.org/docs/hooks-reference.html#useeffect]
-- MetaMask switch network[https://ethereum.stackexchange.com/questions/117156/how-to-ask-the-metamask-user-to-switch-its-network]
-- Ethers.js (video)[https://www.youtube.com/watch?v=yk7nVp5HTCk&t=1470s] (code)[https://github.com/dappuniversity/ethers_examples/tree/master/examples]
-- MetaMask and EthersJS[https://www.youtube.com/watch?v=swZRo6LFrCw]
+- Combining tailwind ans sass loader [Link here](https://stackoverflow.com/questions/55606865/combining-tailwind-css-with-sass-using-webpack)
+- Detect MetaMask account change [Link here](https://stackoverflow.com/questions/70663898/my-dapp-doesnt-detect-when-an-user-change-their-metamask-account)
+- useState not refélecting changes [Link here](https://stackoverflow.com/questions/54069253/the-usestate-set-method-is-not-reflecting-a-change-immediately)
+- React hooks [Link here](https://legacy.reactjs.org/docs/hooks-reference.html#useeffect)
+- MetaMask switch network [Link here](https://ethereum.stackexchange.com/questions/117156/how-to-ask-the-metamask-user-to-switch-its-network)
+- Ethers.js [Video](https://www.youtube.com/watch?v=yk7nVp5HTCk&t=1470s) [Github code](https://github.com/dappuniversity/ethers_examples/tree/master/examples)
+- MetaMask and EthersJS [Link here](https://www.youtube.com/watch?v=swZRo6LFrCw)
+- Ethereum/React Todo List #1 [Video](https://www.youtube.com/watch?v=AiWkkj8lSTc)
+- Ethereum/React Todo List #2 [Video](https://www.youtube.com/watch?v=mmI5CpMw3gU)
+- Master Ethers.js for Blockchain Step-by-Step [Video](https://www.youtube.com/watch?v=yk7nVp5HTCk)
 
 ## Production
 
