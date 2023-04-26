@@ -22,7 +22,7 @@ The files are :
 
 ### Development documentation and tutorial
 
-- Tailwind[https://tailwindcss.com/docs/installation]
+- Tailwind [link](https://tailwindcss.com/docs/installation)
 - Combining tailwind ans sass loader[https://stackoverflow.com/questions/55606865/combining-tailwind-css-with-sass-using-webpack]
 - Detect MetaMask account change[https://stackoverflow.com/questions/70663898/my-dapp-doesnt-detect-when-an-user-change-their-metamask-account]
 - useState not refélecting changes[https://stackoverflow.com/questions/54069253/the-usestate-set-method-is-not-reflecting-a-change-immediately]
