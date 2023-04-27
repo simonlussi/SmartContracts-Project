@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ethers, BigNumber } from 'ethers';
 import BUSDJson from '../contracts/BUSD.json';
 import logo from '../assets/images/logo-white-small.png';
@@ -7,7 +7,6 @@ import ToastContainer from 'react-bootstrap/ToastContainer';
 import AddToast from './components/AddToast';
 
 export default function App()  {
-	alert("re-rendering");
 	// constants
 	const contractAddress = '0x15A40d37e6f8A478DdE2cB18c83280D472B2fC35';
 	const contractABI = BUSDJson.abi;
@@ -18,10 +17,9 @@ export default function App()  {
 	const [toasts, setToasts] = useState([]);
 	const [account, setAccount] = useState<string>(null);
 	const [balance, setBalance] = useState<string>(null);
-	const [connectButtonText, setConnectButtonText] = useState<string>('Connect MetaMask Wallet');
 	const [provider, setProvider] = useState<ethers.providers.Web3Provider>(null);
 	const [signer, setSigner] = useState(null);
-	const [contract, setContract] = useState(null);
+	const [contract, setContract] = useState<ethers.Contract>(null);
 	const [contractOwner, setContractOwner] = useState(null);
 	const [isContractOwner, setIsContractOwner] = useState(false);
 	const [contractSymbol, setContractSymbol] = useState<string>(null);
@@ -30,11 +28,10 @@ export default function App()  {
 	const [spenderAllowance, setSpenderAllowance] = useState<string>(null);
 	const [contractTotalSupply, setContractTotalSupply] = useState<string>(null);
 
-	// Info and Warning function
+	// Info and Warning function - will cause the component to re-render
 	const removeToast = (id: number) => {
     setToasts((toasts) => toasts.filter((e) => e.id !== id));
 	}
-
 	const setWarning = (_errorMessage: string): void => {
 		setToasts((toasts) => [...toasts, { id: Math.random(), Component: AddToast, title: 'Warning!', text: _errorMessage, variant: 'danger', delay: 10000}]);
 	}
@@ -49,8 +46,7 @@ export default function App()  {
 	const connectWalletHandler = async () => {
 		if (window.ethereum && window.ethereum.isMetaMask) {
 
-			const _provider = new ethers.providers.Web3Provider(window.ethereum);
-			setProvider(_provider);
+			const _provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
 			
 			// checking the chain
 			const _chainId = (await _provider.getNetwork()).chainId;
@@ -63,7 +59,7 @@ export default function App()  {
 					if (_chainId === chainId) {
 						getWalletAccount(_provider);
 					} else {
-						setWarning('1Error switching active chain to Mumbai!');
+						setWarning('Error switching active chain to Mumbai!');
 					}
 				} catch (error) {
 					try {
@@ -93,6 +89,7 @@ export default function App()  {
 		}
 	}
 
+	// Getting the wallet
 	const getWalletAccount = (_provider: ethers.providers.Web3Provider) => {
 		_provider.send('eth_requestAccounts', [])
 			.then((result: string[]) => {
@@ -104,62 +101,40 @@ export default function App()  {
 	}
 
 	// update account, will cause component re-render
-	const accountChangedHandler = useCallback((_account: string) => {
-		if (typeof _account === 'object'){
-			_account = (_account as any)[0];
-		}
-		setAccount(_account);
+	const accountChangedHandler = (_account: string) => {
+		setInfo(`Meta Mask wallet connected with account: ${_account}`);
 		updateEthers();
-		setConnectButtonText('Refresh');
-		if (updateInterval) {
-			alert('clearing interval');
-			clearInterval(updateInterval);
-			setUpdateInterval(null);
-		}
-		const _updateInterval = setInterval(() => { 
-			setInfo('refreshing...'); 
-			updateEthers();
-		}, 60000);
-		alert('setting interval');
-		setUpdateInterval(_updateInterval)
-		setInfo(`Meta Mask wallet connected. Account: ${_account}`)
-	}, [updateInterval]);
+	}
 
-	const chainChangedHandler = useCallback((_chainId: any) => {
+	// Detecting a network change, this can be triggerred by the connect function or due to user, if the network is not mumbai, sends a warning and trash all state vars
+	const chainChangedHandler = (_chainId: any) => {
 		if (BigNumber.from(_chainId).toNumber() !== chainId) {
-			setWarning('Network changed, incorrect network, please re-connect wallet');
-			if (updateInterval) {
-				alert('clearing interval');
-				clearInterval(updateInterval);
-				setUpdateInterval(null);
-			}
-			setConnectButtonText('Connect MetaMask Wallet');
+			setWarning('Incorrect network, please re-connect wallet');
 			setAccount(null);
+			setBalance(null);
 			setProvider(null);
 			setSigner(null);
 			setContract(null);
-			setBalance(null);
-			setContract(null);
-			setContractBalance(null);
-			setContractDecimals(null);
 			setContractOwner(null);
-			setContractSymbol(null);
-			setContractTotalSupply(null);
 			setIsContractOwner(false);
+			setContractSymbol(null);
+			setContractDecimals(null);
+			setContractBalance(null);
+			setSpenderAllowance(null);
+			setContractTotalSupply(null);
 		}
-	}, [updateInterval]);
+	}
 
-	// listen for account changes (if no listener set)
+	// listen for account changes (if no listener set (=> re-render))
 	if (!window.ethereum._events.accountsChanged) {
 		window.ethereum.on('accountsChanged', (data: any) => { setInfo('Change of account detected!'); accountChangedHandler(data); });
 	}
-	// listen for change of Network (if no listener set)
+	// listen for change of Network (if no listener set (=> re-render))
 	if (!window.ethereum._events.chainChanged) {
 		window.ethereum.on('chainChanged', (data: any) => { setInfo('Change of network detected!'); chainChangedHandler(data); });
 	}
 
-	const updateEthers = useCallback(async () => {
-		
+	const updateEthers = async () => {
 		try {
 			// Initialize wallet
 			const _provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -178,22 +153,7 @@ export default function App()  {
 			
 			// Get BUSD contract
 			const _contract = new ethers.Contract(contractAddress, contractABI, _signer);
-			setContract(_contract);
 			
-			// Setup Contract Listeners
-			_contract.on('Transfer', (senderAddress, recipientAddress, Amount) => {
-				if (senderAddress === _account || recipientAddress === _account) {
-					setInfo(`Transferred amount BUSD ${Amount.div(BigNumber.from(10).pow(BigNumber.from(_contractDecimals))).toNumber()} from "${senderAddress}" to "${recipientAddress}"`);
-					updateEthers();
-				}
-			});
-			_contract.on('Approval', (ownerAddress, spenderAddress, Amount) => {
-				if (ownerAddress === _account || spenderAddress === _account) {
-					setInfo(`Appoved allowance amount BUSD ${Amount.div(BigNumber.from(10).pow(BigNumber.from(_contractDecimals))).toNumber()} from owner "${ownerAddress}" to "${spenderAddress}"`);
-					updateEthers();
-				}
-			});
-
 			// Get Token Data from contract
 			const _contractSymbol = await _contract.symbol();
 			setContractSymbol(_contractSymbol);
@@ -202,6 +162,8 @@ export default function App()  {
 			const _contractOwner = await _contract.owner();
 			setContractOwner(_contractOwner);
 			setIsContractOwner(_contractOwner === _account);
+			// Saving contract will set up listeners
+			setContract(_contract);
 			
 			// Get BUSD Balance
 			const _contractBalance = await _contract.balanceOf(_account);
@@ -214,7 +176,7 @@ export default function App()  {
 		} catch (error) {
 			setWarning(error.message);
 		}
-	}, [account]);
+	}
 
 	const allowanceHandler = async (event: any) => {
 		event.preventDefault();
@@ -226,6 +188,7 @@ export default function App()  {
 			setSpenderAllowance(null)
 			setWarning('Invalid address');
 		}
+		event.target.spenderAddress.value = null;
 	}
 
 	const mintHandler = async (event: any) => {
@@ -237,6 +200,7 @@ export default function App()  {
 		} else {
 			setWarning('Invalid amount');
 		}
+		event.target.amount.value = null;
 	}
 	
 	const burnHandler = async (event: any) => {
@@ -248,6 +212,7 @@ export default function App()  {
 		} else {
 			setWarning('Invalid amount');
 		}
+		event.target.amount.value = null;
 	}
 
 	const approveHandler = async (event: any) => {
@@ -259,28 +224,35 @@ export default function App()  {
 		} else {
 			setWarning('Invalid address or amount')
 		}
+		event.target.spenderAddress.value = null;
+		event.target.amount.value = null;
 	}
 	
 	const transferHandler = async (event: any) => {
-		if (ethers.utils.isAddress(event.target.recipientAddress.value)) {
+		if (ethers.utils.isAddress(event.target.recipientAddress.value) && event.target.amount.value > 0) {
 			event.preventDefault();
 			const _transfer = await contract.approve(event.target.recipientAddress.value, BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(contractDecimals))));
 			console.log(_transfer);
 			setInfo(`Transfer trx "${_transfer.hash}" awaiting confirmation...`);
 		} else {
-			setWarning(`Invalid address: ${event.target.recipientAddress.value}`)
+			setWarning('Invalid address or amount');
 		}
+		event.target.recipientAddress.value = null;
+		event.target.amount.value = null;
 	}
 	
 	const transferFromHandler = async (event: any) => {
-		if (ethers.utils.isAddress(event.target.spenderAddress.value) && ethers.utils.isAddress(event.target.recipientAddress.value)) {
+		if (ethers.utils.isAddress(event.target.spenderAddress.value) && ethers.utils.isAddress(event.target.recipientAddress.value) && event.target.amount.value > 0) {
 			event.preventDefault();
 			const _transferFrom = await contract.approve(event.target.spenderAddress.value, event.target.recipientAddress.value, BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(contractDecimals))));
 			console.log(_transferFrom);
 			setInfo(`Transfer from trx "${_transferFrom.hash}" awaiting confirmation...`);
 		} else {
-			setWarning(`Invalid address: ${event.target.spenderAddress.value} or ${event.target.recipientAddress.value}`)
+			setWarning('Invalid address or amount');
 		}
+		event.target.recipientAddress.value = null;
+		event.target.spenderAddress.value = null;
+		event.target.amount.value = null;
 	}
 
 	const transferOwnershipHandler = async (event: any) => {
@@ -290,8 +262,9 @@ export default function App()  {
 			console.log(_transferOwnership);
 			setInfo(`Transfer ownership trx "${_transferOwnership.hash}" awaiting confirmation...`);
 		} else {
-			setWarning(`Invalid address: ${event.target.newOwnerAddress.value}`)
+			setWarning('Invalid address');
 		}
+		event.target.newOwnerAddress.value = null;
 	}
 
 	const renounceOwnershipHandler = async () => {
@@ -299,6 +272,49 @@ export default function App()  {
 		console.log(_renounceOwnership);
 		setInfo(`Renounce ownership trx "${_renounceOwnership.hash}" awaiting confirmation...`);
 	}
+
+	useEffect(() => {
+		if (provider) {
+			if (!updateInterval) {
+				const _updateInterval = setInterval(() => { setInfo('Refreshing data...'); updateEthers(); }, 60000);
+				setUpdateInterval(_updateInterval);
+			}
+		} else {
+			if (updateInterval) {
+				clearInterval(updateInterval);
+				setUpdateInterval(null);
+			}
+		}
+	}, [provider])
+
+	useEffect(() => {
+		if (contract && !contractTotalSupply) {
+			contract.removeAllListeners();
+			// Setup Contract Listeners
+			contract.on('Transfer', (recipientAddress, senderAddress, Amount) => {
+				console.log(contractDecimals);
+				if (senderAddress.toLowerCase() === account.toLowerCase() || recipientAddress.toLowerCase() === account.toLowerCase()) {
+					setSuccess(`Transferred amount BUSD ${Amount.div(BigNumber.from(10).pow(BigNumber.from(contractDecimals))).toNumber()} from "${senderAddress}" to "${recipientAddress}"`);
+					setInfo('Refreshing...');
+					updateEthers();
+				}
+			});
+			contract.on('Approval', (ownerAddress, spenderAddress, Amount) => {
+				if (ownerAddress.toLowerCase() === account.toLowerCase() || spenderAddress.toLowerCase() === account.toLowerCase()) {
+					setSuccess(`Appoved allowance amount BUSD ${Amount.div(BigNumber.from(10).pow(BigNumber.from(contractDecimals))).toNumber()} from owner "${ownerAddress}" to "${spenderAddress}"`);
+					setInfo('Refreshing...');
+					updateEthers();
+				}
+			});
+			contract.on('OwnershipTransferred', (oldOwnerAddress, newOwnerAddress, Amount) => {
+				if (oldOwnerAddress.toLowerCase() === account.toLowerCase() || newOwnerAddress.toLowerCase() === account.toLowerCase()) {
+					setSuccess(`Contract ownership transferred from "${oldOwnerAddress}" to "${newOwnerAddress}"`);
+					setInfo('Refreshing...');
+					updateEthers();
+				}
+			});
+		}
+	}, [contract]);
 	
 	return (
 		<>
@@ -313,17 +329,15 @@ export default function App()  {
       </ToastContainer>
 			<div className="overflow-scroll fixed top-24 bottom-0 w-screen">
 				<div className="text-center">
-					<Button variant="outline-primary" size="lg" onClick={() => { 
-						if (connectButtonText === 'Refresh') {
-							setInfo('refreshing...');
-							updateEthers();
-						} else {
-							setInfo('connection wallet...');
-							connectWalletHandler();
-						}
-					}}>
-						{connectButtonText}
-					</Button>
+					{ provider ? (
+						<Button variant="outline-primary" size="lg" onClick={() => { setInfo('Refreshing...'); updateEthers(); }}>
+							Refresh
+						</Button>
+					) : (
+						<Button variant="outline-primary" size="lg" onClick={connectWalletHandler}>
+							Connect Meta Mask Wallet
+						</Button>
+					)}
 				</div>
 				<div className="grid grid-cols-2">
 					<div className="text-white mt-4 text-right mr-4">Account Address :</div>

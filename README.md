@@ -33,6 +33,7 @@ The files are :
 - Ethereum/React Todo List #1 [Video](https://www.youtube.com/watch?v=AiWkkj8lSTc)
 - Ethereum/React Todo List #2 [Video](https://www.youtube.com/watch?v=mmI5CpMw3gU)
 - Master Ethers.js for Blockchain Step-by-Step [Video](https://www.youtube.com/watch?v=yk7nVp5HTCk)
+- Error thrown upon changing network [Link here](https://github.com/Uniswap/web3-react/issues/127)
 
 ## Production
 
