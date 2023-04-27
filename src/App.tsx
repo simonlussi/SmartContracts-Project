@@ -7,7 +7,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer';
 import AddToast from './components/AddToast';
 
 export default function App()  {
-
+	alert("re-rendering");
 	// constants
 	const contractAddress = '0x15A40d37e6f8A478DdE2cB18c83280D472B2fC35';
 	const contractABI = BUSDJson.abi;
@@ -34,12 +34,15 @@ export default function App()  {
 	const removeToast = (id: number) => {
     setToasts((toasts) => toasts.filter((e) => e.id !== id));
 	}
+
 	const setWarning = (_errorMessage: string): void => {
-		setToasts((toasts) => [...toasts, { id: Math.random(), Component: AddToast, title: 'Error', text: _errorMessage, variant: 'danger', delay: 10000}]);
-  	
+		setToasts((toasts) => [...toasts, { id: Math.random(), Component: AddToast, title: 'Warning!', text: _errorMessage, variant: 'danger', delay: 10000}]);
 	}
 	const setInfo = (_infoMessage: string): void => {
-		setToasts((toasts) => [...toasts, { id: Math.random(), Component: AddToast, title: 'Info', text: _infoMessage, variant: 'light', delay: 5000}]);
+		setToasts((toasts) => [...toasts, { id: Math.random(), Component: AddToast, title: 'Info!', text: _infoMessage, variant: 'light', delay: 5000}]);
+	}
+	const setSuccess = (_infoMessage: string): void => {
+		setToasts((toasts) => [...toasts, { id: Math.random(), Component: AddToast, title: 'Success!', text: _infoMessage, variant: 'success', delay: 5000}]);
 	}
 
 	// connect function
@@ -56,11 +59,11 @@ export default function App()  {
 			} else {
 				try {
 					await _provider.send('wallet_switchEthereumChain',[{ chainId: `0x${chainId.toString(16)}` }]);
-					const _chainId = (await provider.getNetwork()).chainId;
+					const _chainId = (await _provider.getNetwork()).chainId;
 					if (_chainId === chainId) {
 						getWalletAccount(_provider);
 					} else {
-						setWarning('Error switching active chain to Mumbai!');
+						setWarning('1Error switching active chain to Mumbai!');
 					}
 				} catch (error) {
 					try {
@@ -74,7 +77,7 @@ export default function App()  {
 								decimals: 18
 							}
 						}]);
-						const _chainId = (await provider.getNetwork()).chainId;
+						const _chainId = (await _provider.getNetwork()).chainId;
 						if (_chainId === chainId) {
 							getWalletAccount(_provider);
 						} else {
@@ -101,7 +104,7 @@ export default function App()  {
 	}
 
 	// update account, will cause component re-render
-	const accountChangedHandler = (_account: string) => {
+	const accountChangedHandler = useCallback((_account: string) => {
 		if (typeof _account === 'object'){
 			_account = (_account as any)[0];
 		}
@@ -109,6 +112,7 @@ export default function App()  {
 		updateEthers();
 		setConnectButtonText('Refresh');
 		if (updateInterval) {
+			alert('clearing interval');
 			clearInterval(updateInterval);
 			setUpdateInterval(null);
 		}
@@ -116,14 +120,16 @@ export default function App()  {
 			setInfo('refreshing...'); 
 			updateEthers();
 		}, 60000);
+		alert('setting interval');
 		setUpdateInterval(_updateInterval)
 		setInfo(`Meta Mask wallet connected. Account: ${_account}`)
-	}
+	}, [updateInterval]);
 
-	const chainChangedHandler = (_chainId: any) => {
-		if (_chainId !== chainId) {
-			setWarning('Incorrect network, please re-connect wallet');
+	const chainChangedHandler = useCallback((_chainId: any) => {
+		if (BigNumber.from(_chainId).toNumber() !== chainId) {
+			setWarning('Network changed, incorrect network, please re-connect wallet');
 			if (updateInterval) {
+				alert('clearing interval');
 				clearInterval(updateInterval);
 				setUpdateInterval(null);
 			}
@@ -132,13 +138,25 @@ export default function App()  {
 			setProvider(null);
 			setSigner(null);
 			setContract(null);
+			setBalance(null);
+			setContract(null);
+			setContractBalance(null);
+			setContractDecimals(null);
+			setContractOwner(null);
+			setContractSymbol(null);
+			setContractTotalSupply(null);
+			setIsContractOwner(false);
 		}
-	}
+	}, [updateInterval]);
 
-	// listen for account changes
-	window.ethereum.on('accountsChanged', accountChangedHandler);
-	// listen for change of Network
-	window.ethereum.on('chainChanged', chainChangedHandler);
+	// listen for account changes (if no listener set)
+	if (!window.ethereum._events.accountsChanged) {
+		window.ethereum.on('accountsChanged', (data: any) => { setInfo('Change of account detected!'); accountChangedHandler(data); });
+	}
+	// listen for change of Network (if no listener set)
+	if (!window.ethereum._events.chainChanged) {
+		window.ethereum.on('chainChanged', (data: any) => { setInfo('Change of network detected!'); chainChangedHandler(data); });
+	}
 
 	const updateEthers = useCallback(async () => {
 		

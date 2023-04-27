@@ -6,7 +6,7 @@ interface Props {
   handleRemove: () => void;
   title: string;
   text: string;
-  variant: 'danger' | 'light';
+  variant: 'danger' | 'light' | 'success';
   delay?: number;
 }
 
