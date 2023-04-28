@@ -231,7 +231,7 @@ export default function App()  {
 	const transferHandler = async (event: any) => {
 		if (ethers.utils.isAddress(event.target.recipientAddress.value) && event.target.amount.value > 0) {
 			event.preventDefault();
-			const _transfer = await contract.approve(event.target.recipientAddress.value, BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(contractDecimals))));
+			const _transfer = await contract.transfer(event.target.recipientAddress.value, BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(contractDecimals))));
 			console.log(_transfer);
 			setInfo(`Transfer trx "${_transfer.hash}" awaiting confirmation...`);
 		} else {
@@ -244,7 +244,7 @@ export default function App()  {
 	const transferFromHandler = async (event: any) => {
 		if (ethers.utils.isAddress(event.target.spenderAddress.value) && ethers.utils.isAddress(event.target.recipientAddress.value) && event.target.amount.value > 0) {
 			event.preventDefault();
-			const _transferFrom = await contract.approve(event.target.spenderAddress.value, event.target.recipientAddress.value, BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(contractDecimals))));
+			const _transferFrom = await contract.transferFrom(event.target.spenderAddress.value, event.target.recipientAddress.value, BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(contractDecimals))));
 			console.log(_transferFrom);
 			setInfo(`Transfer from trx "${_transferFrom.hash}" awaiting confirmation...`);
 		} else {
