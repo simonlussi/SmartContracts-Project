@@ -161,7 +161,7 @@ export default function App()  {
 			setContractDecimals(_contractDecimals);
 			const _contractOwner = await _contract.owner();
 			setContractOwner(_contractOwner);
-			setIsContractOwner(_contractOwner === _account);
+			setIsContractOwner(_contractOwner.toLowerCase() === _account.toLowerCase());
 			// Saving contract will set up listeners
 			setContract(_contract);
 			
@@ -291,7 +291,7 @@ export default function App()  {
 		if (contract && !contractTotalSupply) {
 			contract.removeAllListeners();
 			// Setup Contract Listeners
-			contract.on('Transfer', (recipientAddress, senderAddress, Amount) => {
+			contract.once('Transfer', (recipientAddress, senderAddress, Amount) => {
 				console.log(contractDecimals);
 				if (senderAddress.toLowerCase() === account.toLowerCase() || recipientAddress.toLowerCase() === account.toLowerCase()) {
 					setSuccess(`Transferred amount BUSD ${Amount.div(BigNumber.from(10).pow(BigNumber.from(contractDecimals))).toNumber()} from "${senderAddress}" to "${recipientAddress}"`);
@@ -299,14 +299,14 @@ export default function App()  {
 					updateEthers();
 				}
 			});
-			contract.on('Approval', (ownerAddress, spenderAddress, Amount) => {
+			contract.once('Approval', (ownerAddress, spenderAddress, Amount) => {
 				if (ownerAddress.toLowerCase() === account.toLowerCase() || spenderAddress.toLowerCase() === account.toLowerCase()) {
 					setSuccess(`Appoved allowance amount BUSD ${Amount.div(BigNumber.from(10).pow(BigNumber.from(contractDecimals))).toNumber()} from owner "${ownerAddress}" to "${spenderAddress}"`);
 					setInfo('Refreshing...');
 					updateEthers();
 				}
 			});
-			contract.on('OwnershipTransferred', (oldOwnerAddress, newOwnerAddress, Amount) => {
+			contract.once('OwnershipTransferred', (oldOwnerAddress, newOwnerAddress, Amount) => {
 				if (oldOwnerAddress.toLowerCase() === account.toLowerCase() || newOwnerAddress.toLowerCase() === account.toLowerCase()) {
 					setSuccess(`Contract ownership transferred from "${oldOwnerAddress}" to "${newOwnerAddress}"`);
 					setInfo('Refreshing...');
@@ -357,7 +357,7 @@ export default function App()  {
 							<div className="text-white mt-4 w-1/2">
 								<form onSubmit={allowanceHandler} className="flex flex-col">
 									<input id="spenderAddress" type="text" placeholder="Spender address" className="bg-black border border-white"/>
-									<Button type="submit" variant="outline-primary" size="sm"> Check sprender allowance</Button>
+									<Button type="submit" variant="outline-primary" size="sm"> Check spender allowance</Button>
 								</form>
 								{ spenderAllowance && (
 									<div>{spenderAllowance}</div>
