@@ -180,14 +180,15 @@ export default function App()  {
 
 	const allowanceHandler = async (event: any) => {
 		event.preventDefault();
-		if (ethers.utils.isAddress(event.target.spenderAddress.value)) {
-			const _spenderAllowance = await contract.allowance(account, event.target.spenderAddress.value);
+		if (ethers.utils.isAddress(event.target.spenderAddress.value) && ethers.utils.isAddress(event.target.ownerAddress.value)) {
+			const _spenderAllowance = await contract.allowance(event.target.ownerAddress.value, event.target.spenderAddress.value);
 			console.log(_spenderAllowance);
 			setSpenderAllowance(`Allowance of ${_spenderAllowance.div(BigNumber.from(10).pow(BigNumber.from(contractDecimals))).toNumber()} for spender ${event.target.spenderAddress.value}`);
 		} else {
 			setSpenderAllowance(null)
 			setWarning('Invalid address');
 		}
+		event.target.ownerAddress.value = null;
 		event.target.spenderAddress.value = null;
 	}
 
@@ -356,6 +357,7 @@ export default function App()  {
 							<div className="text-white mt-4 text-right mr-4 text-md">Check Spender allowance:</div>
 							<div className="text-white mt-4 w-1/2">
 								<form onSubmit={allowanceHandler} className="flex flex-col">
+									<input id="ownerAddress" type="text" placeholder="Owner address" className="bg-black border border-white"/>
 									<input id="spenderAddress" type="text" placeholder="Spender address" className="bg-black border border-white"/>
 									<Button type="submit" variant="outline-primary" size="sm"> Check spender allowance</Button>
 								</form>
