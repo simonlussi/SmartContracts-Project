@@ -1,6 +1,6 @@
 {
   "name": "smartcontracts-project",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Mini-project to learn about smart-contracts",
   "author": "Simon Lussi",
   "license": "ISC",
@@ -8,7 +8,10 @@
     "start": "cross-env NODE_ENV=development webpack serve --config ./webpack.config.dev.js",
     "build": "cross-env NODE_ENV=production webpack --config ./webpack.config.prod.js",
     "serve": "cross-env NODE_ENV=production webpack --config ./webpack.config.prod.js && cross-env serve dist/",
-    "lint": "eslint --ext .js,.jsx,.ts,.tsx src/"
+    "lint:fix": "eslint src/. --config .eslintrc.js --ignore-path .eslintignore --ext .js,.jsx,.ts,.tsx --fix",
+    "lint:check": "eslint src/. --config .eslintrc.js --ignore-path .eslintignore --ext .js,.jsx,.ts,.tsx",
+    "prettier:fix": "prettier --write \"**/*.{js,json,md,css,ts,tsx}\"",
+    "prettier:check": "prettier --check \"**/*.{js,json,md,css,ts,tsx}\""
   },
   "devDependencies": {
     "@marshallofsound/webpack-asset-relocator-loader": "^0.5.0",
@@ -37,6 +40,8 @@
     "postcss": "^8.4.23",
     "postcss-loader": "^7.2.4",
     "postcss-preset-env": "^8.3.2",
+    "prettier": "^2.8.8",
+    "prettier-plugin-tailwindcss": "^0.2.8",
     "react-refresh": "^0.14.0",
     "sass": "^1.55.0",
     "sass-loader": "^13.1.0",

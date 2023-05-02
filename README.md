@@ -3,27 +3,20 @@
 Mini-project to learn about smart-contracts
 
 ## Version 1: Basis
-- connexion a metamask correct (gestion de changement de compte, ajout network, check network, ...) --> OK
+
+- connexion a metamask correct (gestion de changement de compte, ajout network, check network, ...)
 - afficher le compte, le solde (MATIC & BUSD), le total supply, check allowance of a spender
 - permettre d'envoyer des tokens, approve, transferFrom, burn, mint
 - si owner: transferOwnership, renounceOwnership
 - bouton refresh + refresh automatique toutes les minutes
 
-## Version 2: History
-- utilisation d'event via function "getPastEvents" (ou equivalent ethers.js)
-- afficher les 10 dernieres actions effectuée sur ce token (approved, transfer)
-- afficher les 10 dernieres actions effectuée sur ce token (approved, transfer) par l'utilisateur actif
-- see all alowance in the form of an aggregation: see current allowance of your address with all spenders (COMME ETHER SCAN MAIS RELATIF à CE TOKEN)
-- voir l'allowance actuelle de l'utilisateur, lorsque celles-ci sont non-nulle de toutes les autres address que l'utilisateur a apprové
-- mettre un bouton refresh + refresh automatique toutes les minutes (pour refresh les info de v1 + les event de la v2)
-- mettre un bouton refresh + refresh automatique toutes les minutes (pour refresh les info de v1 + les event de la v2) (DEPUIS LES DERNIERS EVENTS)
-
 ## Development
 
 create two file (based on the example file `webpack.secrets.example.js`) and input your ALCHEMY_API_KEY for the mumbai polygon network.
 The files are :
+
 1. `webpack.secrets.dev.js`
-2. `webpack.secrets.prod.js` 
+2. `webpack.secrets.prod.js`
 
 - install: `npm install`
 - develop: `npm start`
