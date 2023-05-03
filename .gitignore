@@ -9,7 +9,6 @@ lerna-debug.log*
 webpack.secrets.dev.js
 webpack.secrets.prod.js
 package-lock.json
-README.ignore.MD
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json

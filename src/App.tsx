@@ -25,9 +25,15 @@ interface Web3Data {
   contractTotalSupply: string;
 }
 
+interface Web3EventsData {
+  transfer: any[];
+  approval: any[];
+}
+
 export default function App() {
   // constants
   const contractAddress = '0x15A40d37e6f8A478DdE2cB18c83280D472B2fC35';
+  const contractTransactionHash = '0x42b975256af426d6dc691d37dd95821d3120f4db38e52239f40627c56761f7e3';
   const contractABI = BUSDJson.abi;
   const chainId = 80001;
 
@@ -50,6 +56,10 @@ export default function App() {
     contractBalance: null,
     contractTotalSupply: null,
   });
+  const [events, setEvents] = useState<Web3EventsData>({
+    approval: [],
+    transfer: []
+  })
   const [spenderAllowance, setSpenderAllowance] = useState<string>(null);
 
   // connect function
@@ -143,6 +153,10 @@ export default function App() {
         isContractOwner: null,
         contractBalance: null,
         contractTotalSupply: null,
+      });
+      setEvents({
+        approval: [],
+        transfer: []
       });
     }
   };
@@ -252,10 +266,24 @@ export default function App() {
         contractBalance: _contractBalance,
         contractTotalSupply: _contractTotalSupply,
       });
+
+      // Events
+      const _transferFromBlockNumber = events.transfer.length > 0 ? events.transfer[events.transfer.length - 1].blockNumber : (await _provider.getTransaction(contractTransactionHash)).blockNumber;
+      const _approvalFromBlockNumber = events.approval.length > 0 ? events.approval[events.approval.length - 1].blockNumber : (await _provider.getTransaction(contractTransactionHash)).blockNumber;
+      const _transferFilter = _contract.filters.Transfer();
+      const _approvalFilter = _contract.filters.Approval();
+      const _transfer = await _contract.queryFilter(_transferFilter, _transferFromBlockNumber, 'latest');
+      const _approval = await _contract.queryFilter(_approvalFilter, _approvalFromBlockNumber, 'latest');
+      setEvents({
+        transfer: [...events.transfer, ..._transfer],
+        approval: [...events.approval,..._approval]
+      });
+      
     } catch (error) {
       notificationsRef.current.setWarning(error.message);
     }
   };
+
 
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const allowanceHandler = async (event: any) => {
@@ -542,6 +570,19 @@ export default function App() {
                 </>
               )}
             </>
+          )}
+        </div>
+        <div className='text-center'>
+          {staticData.provider && (
+            <Button
+              variant='outline-primary'
+              size='lg'
+              onClick={() => {
+                console.log(events);
+              }}
+            >
+              Log events
+            </Button>
           )}
         </div>
       </div>
