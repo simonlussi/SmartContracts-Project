@@ -11,21 +11,12 @@ Mini-project to learn about smart-contracts
 - bouton refresh + refresh automatique toutes les minutes
 
 ## Version 2: History
+
 - utilisation d'event via function "getPastEvents" (ou equivalent ethers.js)
 - afficher les 10 dernieres actions effectuée sur ce token (approved, transfer)
 - afficher les 10 dernieres actions effectuée sur ce token (approved, transfer) par l'utilisateur actif
-- see all alowance in the form of an aggregation: see current allowance of your address with all spenders (COMME ETHER SCAN MAIS RELATIF à CE TOKEN)
 - voir l'allowance actuelle de l'utilisateur, lorsque celles-ci sont non-nulle de toutes les autres address que l'utilisateur a apprové
-- mettre un bouton refresh + refresh automatique toutes les minutes (pour refresh les info de v1 + les event de la v2) (DEPUIS LES DERNIERS EVENTS)
-
-
-https://www.google.com/search?q=ethers.js+equivvalent+of+web3+getPastEvents&rlz=1C1YTUH_frCH1045CH1045&oq=ethers.js+equivvalent+of+web3+getPastEvents&aqs=chrome..69i57j0i546l2.15296j0j7&sourceid=chrome&ie=UTF-8
-
-
-
-https://docs.ethers.org/v5/api/contract/contract/#Contract--events
-
-https://stackoverflow.com/questions/51445767/how-to-define-a-regex-matched-string-type-in-typescript
+- mettre un bouton refresh + refresh automatique toutes les minutes (pour refresh les info de v1 + les event de la v2)
 
 ## Development
 
@@ -39,9 +30,9 @@ The files are :
 - develop: `npm start`
 - lint: `npm run lint`
 
-### Version 1: documentation and tutorial
+### Documentation and tutorial
 
-- Tailwind [link](https://tailwindcss.com/docs/installation)
+- Tailwind [Link here](https://tailwindcss.com/docs/installation)
 - Combining tailwind ans sass loader [Link here](https://stackoverflow.com/questions/55606865/combining-tailwind-css-with-sass-using-webpack)
 - Detect MetaMask account change [Link here](https://stackoverflow.com/questions/70663898/my-dapp-doesnt-detect-when-an-user-change-their-metamask-account)
 - useState not refélecting changes [Link here](https://stackoverflow.com/questions/54069253/the-usestate-set-method-is-not-reflecting-a-change-immediately)
@@ -53,10 +44,7 @@ The files are :
 - Ethereum/React Todo List #2 [Video](https://www.youtube.com/watch?v=mmI5CpMw3gU)
 - Master Ethers.js for Blockchain Step-by-Step [Video](https://www.youtube.com/watch?v=yk7nVp5HTCk)
 - Error thrown upon changing network [Link here](https://github.com/Uniswap/web3-react/issues/127)
-
-### Version 2: documentation and tutorial
-
-Ethers equivalent of web3 getPastEvents [Link here](https://github.com/ethers-io/ethers.js/issues/52)
+- Ethers equivalent of web3 getPastEvents [Link here](https://github.com/ethers-io/ethers.js/issues/52)
 
 ## Production
 

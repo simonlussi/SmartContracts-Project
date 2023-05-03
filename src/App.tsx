@@ -25,10 +25,15 @@ interface Web3Data {
   contractTotalSupply: string;
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface Web3EventsData {
-  transfer: any[];
-  approval: any[];
+  allEvents: any[];
+  userEvents: any[];
+  userApprovalEvents: any[];
+  approvalLastBlock: number;
+  transferLastBlock: number;
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export default function App() {
   // constants
@@ -57,9 +62,12 @@ export default function App() {
     contractTotalSupply: null,
   });
   const [events, setEvents] = useState<Web3EventsData>({
-    approval: [],
-    transfer: []
-  })
+    allEvents: [],
+    userEvents: [],
+    userApprovalEvents: [],
+    transferLastBlock: 0,
+    approvalLastBlock: 0,
+  });
   const [spenderAllowance, setSpenderAllowance] = useState<string>(null);
 
   // connect function
@@ -78,7 +86,7 @@ export default function App() {
           if (_chainId === chainId) {
             getWalletAccount(_provider);
           } else {
-            notificationsRef.current.setWarning('Error switching active chain to Mumbai!');
+            notificationsRef?.current.setWarning('Error switching active chain to Mumbai!');
           }
         } catch (error) {
           try {
@@ -98,15 +106,15 @@ export default function App() {
             if (_chainId === chainId) {
               getWalletAccount(_provider);
             } else {
-              notificationsRef.current.setWarning('Error switching active chain to Mumbai!');
+              notificationsRef?.current.setWarning('Error switching active chain to Mumbai!');
             }
           } catch (err) {
-            notificationsRef.current.setWarning(`Error switching active chain to Mumbai: ${err.message}`);
+            notificationsRef?.current.setWarning(`Error switching active chain to Mumbai: ${err.message}`);
           }
         }
       }
     } else {
-      notificationsRef.current.setWarning('Please install MetaMask browser extension to interact: https://metamask.io/download/');
+      notificationsRef?.current.setWarning('Please install MetaMask browser extension to interact: https://metamask.io/download/');
     }
   };
 
@@ -118,20 +126,20 @@ export default function App() {
         accountChangedHandler(result[0]);
       })
       .catch((error: Error) => {
-        notificationsRef.current.setWarning(error.message);
+        notificationsRef?.current.setWarning(error.message);
       });
   };
 
   // update account, will cause component re-render
   const accountChangedHandler = (_account: string) => {
-    notificationsRef.current.setInfo(`Meta Mask wallet connected with account: ${_account}`);
+    notificationsRef?.current.setInfo(`Meta Mask wallet connected with account: ${_account}`);
     updateEthers(true);
   };
 
   // Detecting a network change, this can be triggerred by the connect function or due to user, if the network is not mumbai, sends a warning and trash all state vars
   const chainChangedHandler = (_chainId: string | BigNumber) => {
     if (BigNumber.from(_chainId).toNumber() !== chainId) {
-      notificationsRef.current.setWarning('Incorrect network, please re-connect wallet');
+      notificationsRef?.current.setWarning('Incorrect network, please re-connect wallet');
       if (staticData.updateInterval) {
         clearInterval(staticData.updateInterval);
       }
@@ -155,8 +163,11 @@ export default function App() {
         contractTotalSupply: null,
       });
       setEvents({
-        approval: [],
-        transfer: []
+        allEvents: [],
+        userEvents: [],
+        userApprovalEvents: [],
+        transferLastBlock: 0,
+        approvalLastBlock: 0,
       });
     }
   };
@@ -165,7 +176,7 @@ export default function App() {
   if (!window.ethereum._events.accountsChanged) {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     window.ethereum.on('accountsChanged', (data: any) => {
-      notificationsRef.current.setInfo('Change of account detected!');
+      notificationsRef?.current.setInfo('Change of account detected!');
       accountChangedHandler(data);
     });
   }
@@ -173,7 +184,7 @@ export default function App() {
   if (!window.ethereum._events.chainChanged) {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     window.ethereum.on('chainChanged', (data: any) => {
-      notificationsRef.current.setInfo('Change of network detected!');
+      notificationsRef?.current.setInfo('Change of network detected!');
       chainChangedHandler(data);
     });
   }
@@ -211,40 +222,39 @@ export default function App() {
           clearInterval(staticData.updateInterval);
         }
         const _updateInterval = setInterval(() => {
-          notificationsRef.current.setInfo('Refreshing data...');
+          notificationsRef?.current.setInfo('Refreshing data...');
           updateEthers();
         }, 60000);
         if (staticData.contract) {
           staticData.contract.removeAllListeners();
         }
-        _contract.on('Transfer', (recipientAddress, senderAddress, Amount) => {
-          console.log(_contractDecimals);
+        _contract.on('Transfer', (senderAddress, recipientAddress, Amount) => {
           if (senderAddress.toLowerCase() === _account.toLowerCase() || recipientAddress.toLowerCase() === _account.toLowerCase()) {
-            notificationsRef.current.setSuccess(
+            notificationsRef?.current.setSuccess(
               `Transferred amount BUSD ${Amount.div(
                 BigNumber.from(10).pow(BigNumber.from(_contractDecimals)),
               ).toNumber()} from "${senderAddress}" to "${recipientAddress}"`,
             );
-            notificationsRef.current.setInfo('Refreshing...');
+            notificationsRef?.current.setInfo('Refreshing...');
             updateEthers();
           }
         });
         _contract.on('Approval', (ownerAddress, spenderAddress, Amount) => {
           if (ownerAddress.toLowerCase() === _account.toLowerCase() || spenderAddress.toLowerCase() === _account.toLowerCase()) {
-            notificationsRef.current.setSuccess(
+            notificationsRef?.current.setSuccess(
               `Appoved allowance amount BUSD ${Amount.div(
                 BigNumber.from(10).pow(BigNumber.from(_contractDecimals)),
               ).toNumber()} from owner "${ownerAddress}" to "${spenderAddress}"`,
             );
-            notificationsRef.current.setInfo('Refreshing...');
+            notificationsRef?.current.setInfo('Refreshing...');
             updateEthers();
           }
         });
         /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
         _contract.on('OwnershipTransferred', (oldOwnerAddress, newOwnerAddress, Amount) => {
           if (oldOwnerAddress.toLowerCase() === _account.toLowerCase() || newOwnerAddress.toLowerCase() === _account.toLowerCase()) {
-            notificationsRef.current.setSuccess(`Contract ownership transferred from "${oldOwnerAddress}" to "${newOwnerAddress}"`);
-            notificationsRef.current.setInfo('Refreshing...');
+            notificationsRef?.current.setSuccess(`Contract ownership transferred from "${oldOwnerAddress}" to "${newOwnerAddress}"`);
+            notificationsRef?.current.setInfo('Refreshing...');
             updateEthers();
           }
         });
@@ -268,36 +278,52 @@ export default function App() {
       });
 
       // Events
-      const _transferFromBlockNumber = events.transfer.length > 0 ? events.transfer[events.transfer.length - 1].blockNumber : (await _provider.getTransaction(contractTransactionHash)).blockNumber;
-      const _approvalFromBlockNumber = events.approval.length > 0 ? events.approval[events.approval.length - 1].blockNumber : (await _provider.getTransaction(contractTransactionHash)).blockNumber;
+      const _transferFromBlockNumber =
+        events.transferLastBlock > 0 ? events.transferLastBlock : (await _provider.getTransaction(contractTransactionHash)).blockNumber;
+      const _approvalFromBlockNumber =
+        events.approvalLastBlock > 0 ? events.approvalLastBlock : (await _provider.getTransaction(contractTransactionHash)).blockNumber;
       const _transferFilter = _contract.filters.Transfer();
       const _approvalFilter = _contract.filters.Approval();
       const _transfer = await _contract.queryFilter(_transferFilter, _transferFromBlockNumber, 'latest');
       const _approval = await _contract.queryFilter(_approvalFilter, _approvalFromBlockNumber, 'latest');
+
+      const _allEvents = [..._transfer, ..._approval];
+      _allEvents.sort((a, b) => a.blockNumber - b.blockNumber);
+      const _userEvents = _allEvents.filter(
+        (event) => event.args[0].toLowerCase() === _account.toLowerCase() || event.args[1].toLowerCase() === _account.toLowerCase(),
+      );
+      const _userApprvalEvents = _userEvents.filter(
+        (event) => event.event === 'Approval' && event.args[0].toLowerCase() === _account.toLowerCase(),
+      );
       setEvents({
-        transfer: [...events.transfer, ..._transfer],
-        approval: [...events.approval,..._approval]
+        allEvents: [...events.allEvents, ..._allEvents],
+        userEvents: [...events.userEvents, ..._userEvents],
+        userApprovalEvents: [...events.userApprovalEvents, ..._userApprvalEvents],
+        transferLastBlock: _transfer.length > 0 ? _transfer[_transfer.length - 1].blockNumber : events.transferLastBlock,
+        approvalLastBlock: _approval.length > 0 ? _approval[_approval.length - 1].blockNumber : events.approvalLastBlock,
       });
-      
     } catch (error) {
-      notificationsRef.current.setWarning(error.message);
+      notificationsRef?.current.setWarning(error.message);
     }
   };
-
 
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const allowanceHandler = async (event: any) => {
     event.preventDefault();
     if (ethers.utils.isAddress(event.target.spenderAddress.value) && ethers.utils.isAddress(event.target.ownerAddress.value)) {
-      const _spenderAllowance = await staticData.contract.allowance(event.target.ownerAddress.value, event.target.spenderAddress.value);
-      setSpenderAllowance(
-        `Allowance of ${_spenderAllowance
-          .div(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals)))
-          .toNumber()} for spender ${event.target.spenderAddress.value}`,
-      );
+      try {
+        const _spenderAllowance = await staticData.contract.allowance(event.target.ownerAddress.value, event.target.spenderAddress.value);
+        setSpenderAllowance(
+          `Allowance of ${_spenderAllowance
+            .div(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals)))
+            .toNumber()} for spender ${event.target.spenderAddress.value}`,
+        );
+      } catch (error) {
+        notificationsRef?.current.setWarning(error.message);
+      }
     } else {
       setSpenderAllowance(null);
-      notificationsRef.current.setWarning('Invalid address');
+      notificationsRef?.current.setWarning('Invalid address');
     }
     event.target.ownerAddress.value = null;
     event.target.spenderAddress.value = null;
@@ -307,13 +333,16 @@ export default function App() {
   const mintHandler = async (event: any) => {
     event.preventDefault();
     if (event.target.amount.value > 0) {
-      const _mint = await staticData.contract.mint(
-        BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
-      );
-      console.log(_mint);
-      notificationsRef.current.setInfo(`Mint trx "${_mint.hash}" awaiting confirmation...`);
+      try {
+        const _mint = await staticData.contract.mint(
+          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
+        );
+        notificationsRef?.current.setInfo(`Mint trx "${_mint.hash}" awaiting confirmation...`);
+      } catch (error) {
+        notificationsRef?.current.setWarning(error.message);
+      }
     } else {
-      notificationsRef.current.setWarning('Invalid amount');
+      notificationsRef?.current.setWarning('Invalid amount');
     }
     event.target.amount.value = null;
   };
@@ -322,13 +351,16 @@ export default function App() {
   const burnHandler = async (event: any) => {
     event.preventDefault();
     if (event.target.amount.value > 0) {
-      const _burn = await staticData.contract.burn(
-        BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
-      );
-      console.log(_burn);
-      notificationsRef.current.setInfo(`Burn trx "${_burn.hash}" awaiting confirmation...`);
+      try {
+        const _burn = await staticData.contract.burn(
+          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
+        );
+        notificationsRef?.current.setInfo(`Burn trx "${_burn.hash}" awaiting confirmation...`);
+      } catch (error) {
+        notificationsRef?.current.setWarning(error.message);
+      }
     } else {
-      notificationsRef.current.setWarning('Invalid amount');
+      notificationsRef?.current.setWarning('Invalid amount');
     }
     event.target.amount.value = null;
   };
@@ -337,14 +369,17 @@ export default function App() {
   const approveHandler = async (event: any) => {
     event.preventDefault();
     if (ethers.utils.isAddress(event.target.spenderAddress.value) && event.target.amount.value > 0) {
-      const _approve = await staticData.contract.approve(
-        event.target.spenderAddress.value,
-        BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
-      );
-      console.log(_approve);
-      notificationsRef.current.setInfo(`Approve trx "${_approve.hash}" awaiting confirmation...`);
+      try {
+        const _approve = await staticData.contract.approve(
+          event.target.spenderAddress.value,
+          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
+        );
+        notificationsRef?.current.setInfo(`Approve trx "${_approve.hash}" awaiting confirmation...`);
+      } catch (error) {
+        notificationsRef?.current.setWarning(error.message);
+      }
     } else {
-      notificationsRef.current.setWarning('Invalid address or amount');
+      notificationsRef?.current.setWarning('Invalid address or amount');
     }
     event.target.spenderAddress.value = null;
     event.target.amount.value = null;
@@ -352,16 +387,19 @@ export default function App() {
 
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const transferHandler = async (event: any) => {
+    event.preventDefault();
     if (ethers.utils.isAddress(event.target.recipientAddress.value) && event.target.amount.value > 0) {
-      event.preventDefault();
-      const _transfer = await staticData.contract.transfer(
-        event.target.recipientAddress.value,
-        BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
-      );
-      console.log(_transfer);
-      notificationsRef.current.setInfo(`Transfer trx "${_transfer.hash}" awaiting confirmation...`);
+      try {
+        const _transfer = await staticData.contract.transfer(
+          event.target.recipientAddress.value,
+          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
+        );
+        notificationsRef?.current.setInfo(`Transfer trx "${_transfer.hash}" awaiting confirmation...`);
+      } catch (error) {
+        notificationsRef?.current.setWarning(error.message);
+      }
     } else {
-      notificationsRef.current.setWarning('Invalid address or amount');
+      notificationsRef?.current.setWarning('Invalid address or amount');
     }
     event.target.recipientAddress.value = null;
     event.target.amount.value = null;
@@ -369,21 +407,24 @@ export default function App() {
 
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const transferFromHandler = async (event: any) => {
+    event.preventDefault();
     if (
       ethers.utils.isAddress(event.target.spenderAddress.value) &&
       ethers.utils.isAddress(event.target.recipientAddress.value) &&
       event.target.amount.value > 0
     ) {
-      event.preventDefault();
-      const _transferFrom = await staticData.contract.transferFrom(
-        event.target.spenderAddress.value,
-        event.target.recipientAddress.value,
-        BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
-      );
-      console.log(_transferFrom);
-      notificationsRef.current.setInfo(`Transfer from trx "${_transferFrom.hash}" awaiting confirmation...`);
+      try {
+        const _transferFrom = await staticData.contract.transferFrom(
+          event.target.spenderAddress.value,
+          event.target.recipientAddress.value,
+          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
+        );
+        notificationsRef?.current.setInfo(`Transfer from trx "${_transferFrom.hash}" awaiting confirmation...`);
+      } catch (error) {
+        notificationsRef?.current.setWarning(error.message);
+      }
     } else {
-      notificationsRef.current.setWarning('Invalid address or amount');
+      notificationsRef?.current.setWarning('Invalid address or amount');
     }
     event.target.recipientAddress.value = null;
     event.target.spenderAddress.value = null;
@@ -392,21 +433,27 @@ export default function App() {
 
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const transferOwnershipHandler = async (event: any) => {
+    event.preventDefault();
     if (ethers.utils.isAddress(event.target.newOwnerAddress.value)) {
-      event.preventDefault();
-      const _transferOwnership = await staticData.contract.transferOwnership(event.target.newOwnerAddress.value);
-      console.log(_transferOwnership);
-      notificationsRef.current.setInfo(`Transfer ownership trx "${_transferOwnership.hash}" awaiting confirmation...`);
+      try {
+        const _transferOwnership = await staticData.contract.transferOwnership(event.target.newOwnerAddress.value);
+        notificationsRef?.current.setInfo(`Transfer ownership trx "${_transferOwnership.hash}" awaiting confirmation...`);
+      } catch (error) {
+        notificationsRef?.current.setWarning(error.message);
+      }
     } else {
-      notificationsRef.current.setWarning('Invalid address');
+      notificationsRef?.current.setWarning('Invalid address');
     }
     event.target.newOwnerAddress.value = null;
   };
 
   const renounceOwnershipHandler = async () => {
-    const _renounceOwnership = await staticData.contract.renounceOwnership();
-    console.log(_renounceOwnership);
-    notificationsRef.current.setInfo(`Renounce ownership trx "${_renounceOwnership.hash}" awaiting confirmation...`);
+    try {
+      const _renounceOwnership = await staticData.contract.renounceOwnership();
+      notificationsRef?.current.setInfo(`Renounce ownership trx "${_renounceOwnership.hash}" awaiting confirmation...`);
+    } catch (error) {
+      notificationsRef?.current.setWarning(error.message);
+    }
   };
 
   return (
@@ -416,14 +463,14 @@ export default function App() {
         <div className='text-primary h-full flex-1 self-center text-4xl'>SmartContracts Project</div>
       </div>
       <Notifications ref={notificationsRef} />
-      <div className='fixed bottom-0 top-24 w-screen overflow-scroll'>
+      <div className='fixed bottom-0 top-24 w-screen overflow-scroll text-center'>
         <div className='text-center'>
           {staticData.provider ? (
             <Button
               variant='outline-primary'
               size='lg'
               onClick={() => {
-                notificationsRef.current.setInfo('Refreshing...');
+                notificationsRef?.current.setInfo('Refreshing...');
                 updateEthers();
               }}
             >
@@ -435,7 +482,7 @@ export default function App() {
             </Button>
           )}
         </div>
-        <div className='grid grid-cols-2'>
+        <div className='grid grid-cols-2 text-left'>
           <div className='mr-4 mt-4 text-right text-white'>Account Address :</div>
           <div className='mt-4 text-white'>{staticData.account}</div>
           {staticData.account && (
@@ -572,19 +619,76 @@ export default function App() {
             </>
           )}
         </div>
-        <div className='text-center'>
-          {staticData.provider && (
-            <Button
-              variant='outline-primary'
-              size='lg'
-              onClick={() => {
-                console.log(events);
-              }}
-            >
-              Log events
-            </Button>
-          )}
-        </div>
+        {events.userApprovalEvents.length > 0 && (
+          <>
+            <div className='grid grid-cols-2'>
+              <div></div>
+              <div className='text-primary mt-8 text-left text-xl'>All allowances for current Account</div>
+            </div>
+            {Object.entries(
+              events.userApprovalEvents.reduce((accumulator, event) => {
+                if (!accumulator[event.args[1]]) {
+                  accumulator[event.args[1]] = 0;
+                }
+                accumulator[event.args[1]] += event.args[2]
+                  .div(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals)))
+                  .toNumber();
+                return accumulator;
+              }, {}),
+            )
+              .filter((allowance: [string, number]) => allowance[1] > 0)
+              .map((allowance: [string, number]) => (
+                <div key={allowance[0]} className='grid grid-cols-2'>
+                  <div className='mr-4 mt-4 text-right text-white'>Amount: {allowance[1]}</div>
+                  <div className='mt-4 text-left text-white'>Spender : {allowance[0]}</div>
+                </div>
+              ))}
+          </>
+        )}
+        {events.userEvents.length > 0 && (
+          <>
+            <div className='grid grid-cols-2'>
+              <div></div>
+              <div className='text-primary mt-8 text-left text-xl'>Last 10 Events for the current Account</div>
+            </div>
+            {events.userEvents.slice(-Math.min(10, events.userEvents.length)).map((event) => (
+              <div key={event.transactionHash} className='grid grid-cols-2'>
+                <div className='mr-4 mt-4 text-right text-white'>Event : {event.event}</div>
+                <div className='mt-4 text-left text-white'>
+                  {event.event === 'Transfer' ? 'Sender' : 'Owner'} : {event.args[0]}
+                </div>
+                <div className='mr-4 text-right text-white'>
+                  Amount: {event.args[2].div(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))).toNumber()}
+                </div>
+                <div className='text-left text-white'>
+                  {event.event === 'Transfer' ? 'Recipient' : 'Spender'} : {event.args[1]}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+        {events.allEvents.length > 0 && (
+          <>
+            <div className='grid grid-cols-2'>
+              <div></div>
+              <div className='text-primary mt-8 text-left text-xl'>Last 10 Events</div>
+            </div>
+            {events.allEvents.slice(-Math.min(10, events.allEvents.length)).map((event) => (
+              <div key={event.transactionHash} className='grid grid-cols-2'>
+                <div className='mr-4 mt-4 text-right text-white'>Event : {event.event}</div>
+                <div className='mt-4 text-left text-white'>
+                  {event.event === 'Transfer' ? 'Sender' : 'Owner'} : {event.args[0]}
+                </div>
+                <div className='mr-4 text-right text-white'>
+                  Amount: {event.args[2].div(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))).toNumber()}
+                </div>
+                <div className='text-left text-white'>
+                  {event.event === 'Transfer' ? 'Recipient' : 'Spender'} : {event.args[1]}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </>
   );
