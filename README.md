@@ -20,15 +20,15 @@ Mini-project to learn about smart-contracts
 
 ## Development
 
-create two file (based on the example file `webpack.secrets.example.js`) and input your ALCHEMY_API_KEY for the mumbai polygon network.
-The files are :
-
-1. `webpack.secrets.dev.js`
-2. `webpack.secrets.prod.js`
+create `webpack.secrets.dev.js` and `webpack.secrets.prod.js` and put the API keys (refer to `webpack.secrets.example.js`) 
 
 - install: `npm install`
 - develop: `npm start`
-- lint: `npm run lint`
+- lint: `npm run lint:check && npm run lint:fix`
+
+## Production
+
+-build: `npm run build`
 
 ### Documentation and tutorial
 
@@ -45,6 +45,7 @@ The files are :
 - Master Ethers.js for Blockchain Step-by-Step [Video](https://www.youtube.com/watch?v=yk7nVp5HTCk)
 - Error thrown upon changing network [Link here](https://github.com/Uniswap/web3-react/issues/127)
 - Ethers equivalent of web3 getPastEvents [Link here](https://github.com/ethers-io/ethers.js/issues/52)
+- Ether queryFilter iterate through blocks [Link here](https://ethereum.stackexchange.com/questions/107590/contract-queryfilterfilter-giving-me-errors-in-ethers-js)
 
 ## Production
 

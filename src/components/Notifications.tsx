@@ -5,6 +5,7 @@ import Toast from 'react-bootstrap/Toast';
 export type NotificationsElement = HTMLDivElement & {
   setWarning: (_errorMessage: string) => void;
   setInfo: (_infoMessage: string) => void;
+  setFlashInfo: (_infoMessage: string) => void;
   setSuccess: (_successMessage: string) => void;
 };
 
@@ -35,6 +36,9 @@ const Notifications = forwardRef((props, ref: ForwardedRef<NotificationsElement>
         },
         setInfo(_infoMessage: string): void {
           setToasts((toasts) => [...toasts, { id: Math.random(), title: 'Info!', text: _infoMessage, variant: 'light', delay: 5000 }]);
+        },
+        setFlashInfo(_infoMessage: string): void {
+          setToasts((toasts) => [...toasts, { id: Math.random(), title: 'Info!', text: _infoMessage, variant: 'light', delay: 500 }]);
         },
         setSuccess(_successMessage: string): void {
           setToasts((toasts) => [

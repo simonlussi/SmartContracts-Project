@@ -64,7 +64,7 @@ module.exports = {
     clean: true,
   },
   plugins: [
-    ...require('./webpack.secrets.dev'),
+    ...require('./webpack.secrets.prod.js'),
     new ForkTsCheckerWebpackPlugin(),
     new HtmlWebpackPlugin({
       template: 'assets/index.html',

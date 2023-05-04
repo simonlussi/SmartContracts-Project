@@ -6,9 +6,9 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+package-lock.json
 webpack.secrets.dev.js
 webpack.secrets.prod.js
-package-lock.json
 README.SECRET.MD
 
 # Diagnostic reports (https://nodejs.org/api/report.html)

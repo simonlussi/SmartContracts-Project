@@ -1,6 +1,6 @@
-const { EnvironmentPlugin } = require('webpack');
+const {EnvironmentPlugin} = require('webpack');
 
-module.exports = [
-  new EnvironmentPlugin({
-    ALCHEMY_API_KEY: 'ALCHEMY_API_KEY_HERE',
-  })];
+module.exports = [new EnvironmentPlugin({
+  MATICVIGIL_API_KEY: '123456',
+  ALCHEMY_API_KEY: '123456',
+})];

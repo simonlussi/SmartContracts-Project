@@ -3,6 +3,7 @@ import { ethers, BigNumber } from 'ethers';
 import BUSDJson from '../contracts/BUSD.json';
 import logo from '../assets/images/logo-white-small.png';
 import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
 import Notifications, { NotificationsElement } from './components/Notifications';
 
 type Address = `/^(0x)?[0-9a-fA-F]{40}$/`;
@@ -35,6 +36,13 @@ interface Web3EventsData {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+interface Web3RpcProvider {
+  url: string;
+  maxBlock: number;
+  maxQueriesPerMinute: number;
+  maxQueriesPerSeconds: number;
+}
+
 export default function App() {
   // constants
   const contractAddress = '0x15A40d37e6f8A478DdE2cB18c83280D472B2fC35';
@@ -61,6 +69,12 @@ export default function App() {
     contractBalance: null,
     contractTotalSupply: null,
   });
+  const [rpcProvider, setRpcProvider] = useState<Web3RpcProvider>({
+    url: `https://rpc-mumbai.maticvigil.com/v1/${process.env.MATICVIGIL_API_KEY}`,
+    maxBlock: 1000,
+    maxQueriesPerMinute: 660,
+    maxQueriesPerSeconds: 20,
+  })
   const [events, setEvents] = useState<Web3EventsData>({
     allEvents: [],
     userEvents: [],
@@ -69,7 +83,26 @@ export default function App() {
     approvalLastBlock: 0,
   });
   const [spenderAllowance, setSpenderAllowance] = useState<string>(null);
-
+  
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const changeRpcProvider = (event: any) => {
+    event.preventDefault();
+    if (event.target.value === 'alchemy') {
+      setRpcProvider({
+        url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+        maxBlock: 999999999999,
+        maxQueriesPerMinute: 999999999999,
+        maxQueriesPerSeconds: 999999999999,
+      });
+    } else {
+      setRpcProvider({
+        url: `https://rpc-mumbai.maticvigil.com/v1/${process.env.MATICVIGIL_API_KEY}`,
+        maxBlock: 1000,
+        maxQueriesPerMinute: 1400,
+        maxQueriesPerSeconds: 40,
+      });
+    }
+  }
   // connect function
   const connectWalletHandler = async () => {
     if (window.ethereum && window.ethereum.isMetaMask) {
@@ -94,7 +127,7 @@ export default function App() {
               {
                 chainId: `0x${chainId.toString(16)}`,
                 chainName: 'Mumbai',
-                rpcUrls: [`https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`],
+                rpcUrls: ['https://rpc-mumbai.maticvigil.com/'],
                 nativeCurrency: {
                   name: 'Polygon',
                   symbol: 'MATIC',
@@ -189,6 +222,10 @@ export default function App() {
     });
   }
 
+  const sleep = (ms: number) => {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   const updateEthers = async (updateStatic = false) => {
     try {
       // Initialize wallet
@@ -218,13 +255,6 @@ export default function App() {
       const _contractTotalSupply = ethers.utils.formatUnits(await _contract.totalSupply(), _contractDecimals);
 
       if (updateStatic) {
-        if (staticData.updateInterval) {
-          clearInterval(staticData.updateInterval);
-        }
-        const _updateInterval = setInterval(() => {
-          notificationsRef?.current.setInfo('Refreshing data...');
-          updateEthers();
-        }, 60000);
         if (staticData.contract) {
           staticData.contract.removeAllListeners();
         }
@@ -264,7 +294,7 @@ export default function App() {
           contract: _contract,
           contractSymbol: _contractSymbol,
           contractDecimals: _contractDecimals,
-          updateInterval: _updateInterval,
+          updateInterval: null,
           account: _account,
         });
       }
@@ -278,30 +308,124 @@ export default function App() {
       });
 
       // Events
-      const _transferFromBlockNumber =
+      const _eventsContract = new ethers.Contract(contractAddress, contractABI, new ethers.providers.JsonRpcProvider(rpcProvider.url));
+      // Calculate Blocks
+      let _transferFromBlockNumber =
         events.transferLastBlock > 0 ? events.transferLastBlock : (await _provider.getTransaction(contractTransactionHash)).blockNumber;
-      const _approvalFromBlockNumber =
+      let _approvalFromBlockNumber =
         events.approvalLastBlock > 0 ? events.approvalLastBlock : (await _provider.getTransaction(contractTransactionHash)).blockNumber;
-      const _transferFilter = _contract.filters.Transfer();
-      const _approvalFilter = _contract.filters.Approval();
-      const _transfer = await _contract.queryFilter(_transferFilter, _transferFromBlockNumber, 'latest');
-      const _approval = await _contract.queryFilter(_approvalFilter, _approvalFromBlockNumber, 'latest');
+      const _toBlockNumber = (await _provider.getBlock('latest')).number;
+      // Get event filters
+      const _transferFilter = _eventsContract.filters.Transfer();
+      const _approvalFilter = _eventsContract.filters.Approval();
+      
+      let _transfer: any[] = [];
+      let _approval: any[] = [];
+      
+      // Initiate
+      let iterate = true;
+      let numberOfQueriesPerSecond = 0;
+      let numberOfQueriesPerMinute = 0;
+      let startMinute = new Date().getTime();
+      while (iterate) {
+        try {
+          let start = new Date().getTime();
+          
+          const queries= {
+            transfer: [] as Promise<any>[],
+            approval: [] as Promise<any>[]
+          };
+          let firstBlock = _transferFromBlockNumber;
+          let eventType = 'Transfer';
+          for (let i = _transferFromBlockNumber; i <= _toBlockNumber && numberOfQueriesPerMinute < rpcProvider.maxQueriesPerMinute && numberOfQueriesPerSecond < rpcProvider.maxQueriesPerSeconds; i += rpcProvider.maxBlock) {
+            const _startBlock = i;
+            const _endBlock = Math.min(_toBlockNumber, i + rpcProvider.maxBlock - 1);
+            queries.transfer.push(_eventsContract.queryFilter(_transferFilter, _startBlock, _endBlock).catch((error) => { throw error}));
+            numberOfQueriesPerSecond++;
+            numberOfQueriesPerMinute++;
+            _transferFromBlockNumber = _endBlock + 1;
+          }
+          let lastBlock = _transferFromBlockNumber;
 
+          if (queries.transfer.length === 0) {
+            firstBlock = _approvalFromBlockNumber;
+            eventType = 'Approval'
+          }
+          for (let i = _approvalFromBlockNumber; i <= _toBlockNumber && numberOfQueriesPerMinute < rpcProvider.maxQueriesPerMinute && numberOfQueriesPerSecond < rpcProvider.maxQueriesPerSeconds; i += rpcProvider.maxBlock) {
+            const _startBlock = i;
+            const _endBlock = Math.min(_toBlockNumber, i + rpcProvider.maxBlock - 1);
+            queries.approval.push(_eventsContract.queryFilter(_approvalFilter, _startBlock, _endBlock).catch((error) => { throw error}));
+            numberOfQueriesPerSecond++;
+            numberOfQueriesPerMinute++;
+            _approvalFromBlockNumber = _endBlock + 1;
+          }
+          if (queries.transfer.length === 0) {
+            lastBlock = _approvalFromBlockNumber;
+          }
+          notificationsRef?.current.setInfo(`Retrieving ${eventType} Events from block ${firstBlock} to block ${lastBlock} (latest block: ${_toBlockNumber}, retrieval rate max ${rpcProvider.maxQueriesPerSeconds * rpcProvider.maxBlock} block per second or ${rpcProvider.maxQueriesPerMinute * rpcProvider.maxBlock} block per minute)`)
+          if (queries.transfer.length > 0) {
+            _transfer = [..._transfer, ...await Promise.all(queries.transfer)];
+            _transfer = _transfer.flat(1);
+          }
+          if (queries.approval.length > 0) {
+            _approval = [..._approval, ...await Promise.all(queries.approval)];
+            _approval = _approval.flat(1);
+          }
+          if (_approvalFromBlockNumber >= _toBlockNumber && _transferFromBlockNumber >= _toBlockNumber) {
+            iterate = false
+          }
+          while (new Date().getTime() < start + 1000) {
+            await sleep(1000);
+          }
+          numberOfQueriesPerSecond = 0;
+          if (numberOfQueriesPerMinute >= rpcProvider.maxQueriesPerMinute) {
+            while (new Date().getTime() < startMinute + 1000 * 60) {
+              await sleep(5000);
+            }
+            numberOfQueriesPerMinute = 0;
+            startMinute = new Date().getTime();
+          }
+        } catch(error) {
+          notificationsRef?.current.setWarning(`An error occured, waiting 30 seconds before resuming. Error: ${error.message}`);
+          await sleep(30000);
+        }
+      }
+      
       const _allEvents = [..._transfer, ..._approval];
       _allEvents.sort((a, b) => a.blockNumber - b.blockNumber);
       const _userEvents = _allEvents.filter(
         (event) => event.args[0].toLowerCase() === _account.toLowerCase() || event.args[1].toLowerCase() === _account.toLowerCase(),
       );
-      const _userApprvalEvents = _userEvents.filter(
+      const _userApprovalEvents = _userEvents.filter(
         (event) => event.event === 'Approval' && event.args[0].toLowerCase() === _account.toLowerCase(),
       );
+      
       setEvents({
         allEvents: [...events.allEvents, ..._allEvents],
         userEvents: [...events.userEvents, ..._userEvents],
-        userApprovalEvents: [...events.userApprovalEvents, ..._userApprvalEvents],
+        userApprovalEvents: [...events.userApprovalEvents, ..._userApprovalEvents],
         transferLastBlock: _transfer.length > 0 ? _transfer[_transfer.length - 1].blockNumber : events.transferLastBlock,
         approvalLastBlock: _approval.length > 0 ? _approval[_approval.length - 1].blockNumber : events.approvalLastBlock,
       });
+
+      if (updateStatic) {
+        if (staticData.updateInterval) {
+          clearInterval(staticData.updateInterval);
+        }
+        const _updateInterval = setInterval(() => {
+          notificationsRef?.current.setInfo('Refreshing data...');
+          updateEthers();
+        }, 60000);
+        setStaticData({
+          provider: _provider,
+          signer: _signer,
+          contract: _contract,
+          contractSymbol: _contractSymbol,
+          contractDecimals: _contractDecimals,
+          updateInterval: _updateInterval,
+          account: _account,
+        });
+      }
     } catch (error) {
       notificationsRef?.current.setWarning(error.message);
     }
@@ -465,7 +589,7 @@ export default function App() {
       <Notifications ref={notificationsRef} />
       <div className='fixed bottom-0 top-24 w-screen overflow-scroll text-center'>
         <div className='text-center'>
-          {staticData.provider ? (
+          {staticData.updateInterval ? (
             <Button
               variant='outline-primary'
               size='lg'
@@ -477,9 +601,18 @@ export default function App() {
               Refresh
             </Button>
           ) : (
-            <Button variant='outline-primary' size='lg' onClick={connectWalletHandler}>
-              Connect Meta Mask Wallet
-            </Button>
+            <>
+              <div className="w-full text-center">
+                <Form.Select onChange={changeRpcProvider} className="w-auto inline-block">
+                  <option value="maticvigil">https://rpc-mumbai.maticvigil.com</option>
+                  <option value="alchemy">https://polygon-mumbai.g.alchemy.com</option>
+                </Form.Select>
+              </div>
+              <Button variant='outline-primary' size='lg' className="mt-4" onClick={connectWalletHandler}>
+                Connect Meta Mask Wallet
+              </Button>
+            </>
+            
           )}
         </div>
         <div className='grid grid-cols-2 text-left'>
@@ -508,112 +641,116 @@ export default function App() {
                 )}
               </div>
 
-              <div className='text-md mr-4 mt-4 text-right text-white'>Check Spender allowance:</div>
-              <div className='mt-4 w-1/2 text-white'>
-                <form onSubmit={allowanceHandler} className='flex flex-col'>
-                  <input id='ownerAddress' type='text' placeholder='Owner address' className='border border-white bg-black' />
-                  <input id='spenderAddress' type='text' placeholder='Spender address' className='border border-white bg-black' />
-                  <Button type='submit' variant='outline-primary' size='sm'>
-                    {' '}
-                    Check spender allowance
-                  </Button>
-                </form>
-                {spenderAllowance && <div>{spenderAllowance}</div>}
-              </div>
-
-              <div className='text-md mr-4 mt-4 text-right text-white'>Mint Token:</div>
-              <div className='mt-4 w-1/2 text-white'>
-                <form onSubmit={mintHandler} className='flex flex-col'>
-                  <input id='amount' type='text' placeholder='Amount' className='border border-white bg-black' />
-                  <Button type='submit' variant='outline-primary' size='sm'>
-                    {' '}
-                    Mint
-                  </Button>
-                </form>
-              </div>
-
-              <div className='text-md mr-4 mt-4 text-right text-white'>Burn Token:</div>
-              <div className='mt-4 w-1/2 text-white'>
-                <form onSubmit={burnHandler} className='flex flex-col'>
-                  <input id='amount' type='text' placeholder='Amount' className='border border-white bg-black' />
-                  <Button type='submit' variant='outline-primary' size='sm'>
-                    {' '}
-                    Burn
-                  </Button>
-                </form>
-              </div>
-
-              <div className='text-md mr-4 mt-4 text-right text-white'>Approve Spender:</div>
-              <div className='mt-4 w-1/2 text-white'>
-                <form onSubmit={approveHandler} className='flex flex-col'>
-                  <input id='spenderAddress' type='text' placeholder='Spender address' className='border border-white bg-black' />
-                  <input id='amount' type='text' placeholder='Amount' className='border border-white bg-black' />
-                  <Button type='submit' variant='outline-primary' size='sm'>
-                    {' '}
-                    Approve Spender for Amount
-                  </Button>
-                </form>
-              </div>
-
-              <div className='text-md mr-4 mt-4 text-right text-white'>Transfer Token:</div>
-              <div className='mt-4 w-1/2 text-white'>
-                <form onSubmit={transferHandler} className='flex flex-col'>
-                  <input id='recipientAddress' type='text' placeholder='Recipient address' className='border border-white bg-black' />
-                  <input id='amount' type='text' placeholder='Amount' className='border border-white bg-black' />
-                  <Button type='submit' variant='outline-primary' size='sm'>
-                    {' '}
-                    Transfer Amount
-                  </Button>
-                </form>
-              </div>
-
-              <div className='text-md mr-4 mt-4 text-right text-white'>Transfer Token From:</div>
-              <div className='mt-4 w-1/2 text-white'>
-                <form onSubmit={transferFromHandler} className='flex flex-col'>
-                  <input id='spenderAddress' type='text' placeholder='Spender address' className='border border-white bg-black' />
-                  <input id='recipientAddress' type='text' placeholder='Recipient address' className='border border-white bg-black' />
-                  <input id='amount' type='text' placeholder='Amount' className='border border-white bg-black' />
-                  <Button type='submit' variant='outline-primary' size='sm'>
-                    {' '}
-                    Transfer amount from Spender
-                  </Button>
-                </form>
-              </div>
-
-              {data.isContractOwner ? (
+              {staticData.updateInterval && (
                 <>
-                  <div className='text-md mr-4 mt-4 text-right text-white'>Transfer Contract Ownership:</div>
+                  <div className='text-md mr-4 mt-4 text-right text-white'>Check Spender allowance:</div>
                   <div className='mt-4 w-1/2 text-white'>
-                    <form onSubmit={transferOwnershipHandler} className='flex flex-col'>
-                      <input id='newOwnerAddress' type='text' placeholder='New owner address' className='border border-white bg-black' />
+                    <form onSubmit={allowanceHandler} className='flex flex-col'>
+                      <input id='ownerAddress' type='text' placeholder='Owner address' className='border border-white bg-black' />
+                      <input id='spenderAddress' type='text' placeholder='Spender address' className='border border-white bg-black' />
                       <Button type='submit' variant='outline-primary' size='sm'>
                         {' '}
-                        Transfer Contract Ownership
+                        Check spender allowance
+                      </Button>
+                    </form>
+                    {spenderAllowance && <div>{spenderAllowance}</div>}
+                  </div>
+
+                  <div className='text-md mr-4 mt-4 text-right text-white'>Mint Token:</div>
+                  <div className='mt-4 w-1/2 text-white'>
+                    <form onSubmit={mintHandler} className='flex flex-col'>
+                      <input id='amount' type='text' placeholder='Amount' className='border border-white bg-black' />
+                      <Button type='submit' variant='outline-primary' size='sm'>
+                        {' '}
+                        Mint
                       </Button>
                     </form>
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className='text-md mr-4 mt-4 text-right text-white line-through'>Transfer Contract Ownership:</div>
-                  <div className='mt-4 w-1/2 text-white'>This function is only available to the contract owner ({data.contractOwner})</div>
-                </>
-              )}
 
-              {data.isContractOwner ? (
-                <>
-                  <div className='text-md mr-4 mt-4 text-right text-white'>Renounce Contract Ownership:</div>
+                  <div className='text-md mr-4 mt-4 text-right text-white'>Burn Token:</div>
                   <div className='mt-4 w-1/2 text-white'>
-                    <Button onClick={renounceOwnershipHandler} variant='outline-primary' size='sm'>
-                      {' '}
-                      Renounce Contract Ownership
-                    </Button>
+                    <form onSubmit={burnHandler} className='flex flex-col'>
+                      <input id='amount' type='text' placeholder='Amount' className='border border-white bg-black' />
+                      <Button type='submit' variant='outline-primary' size='sm'>
+                        {' '}
+                        Burn
+                      </Button>
+                    </form>
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className='text-md mr-4 mt-4 text-right text-white line-through'>Renounce Contract Ownership:</div>
-                  <div className='mt-4 w-1/2 text-white'>This function is only available to the contract owner ({data.contractOwner})</div>
+
+                  <div className='text-md mr-4 mt-4 text-right text-white'>Approve Spender:</div>
+                  <div className='mt-4 w-1/2 text-white'>
+                    <form onSubmit={approveHandler} className='flex flex-col'>
+                      <input id='spenderAddress' type='text' placeholder='Spender address' className='border border-white bg-black' />
+                      <input id='amount' type='text' placeholder='Amount' className='border border-white bg-black' />
+                      <Button type='submit' variant='outline-primary' size='sm'>
+                        {' '}
+                        Approve Spender for Amount
+                      </Button>
+                    </form>
+                  </div>
+
+                  <div className='text-md mr-4 mt-4 text-right text-white'>Transfer Token:</div>
+                  <div className='mt-4 w-1/2 text-white'>
+                    <form onSubmit={transferHandler} className='flex flex-col'>
+                      <input id='recipientAddress' type='text' placeholder='Recipient address' className='border border-white bg-black' />
+                      <input id='amount' type='text' placeholder='Amount' className='border border-white bg-black' />
+                      <Button type='submit' variant='outline-primary' size='sm'>
+                        {' '}
+                        Transfer Amount
+                      </Button>
+                    </form>
+                  </div>
+
+                  <div className='text-md mr-4 mt-4 text-right text-white'>Transfer Token From:</div>
+                  <div className='mt-4 w-1/2 text-white'>
+                    <form onSubmit={transferFromHandler} className='flex flex-col'>
+                      <input id='spenderAddress' type='text' placeholder='Spender address' className='border border-white bg-black' />
+                      <input id='recipientAddress' type='text' placeholder='Recipient address' className='border border-white bg-black' />
+                      <input id='amount' type='text' placeholder='Amount' className='border border-white bg-black' />
+                      <Button type='submit' variant='outline-primary' size='sm'>
+                        {' '}
+                        Transfer amount from Spender
+                      </Button>
+                    </form>
+                  </div>
+
+                  {data.isContractOwner ? (
+                    <>
+                      <div className='text-md mr-4 mt-4 text-right text-white'>Transfer Contract Ownership:</div>
+                      <div className='mt-4 w-1/2 text-white'>
+                        <form onSubmit={transferOwnershipHandler} className='flex flex-col'>
+                          <input id='newOwnerAddress' type='text' placeholder='New owner address' className='border border-white bg-black' />
+                          <Button type='submit' variant='outline-primary' size='sm'>
+                            {' '}
+                            Transfer Contract Ownership
+                          </Button>
+                        </form>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className='text-md mr-4 mt-4 text-right text-white line-through'>Transfer Contract Ownership:</div>
+                      <div className='mt-4 w-1/2 text-white'>This function is only available to the contract owner ({data.contractOwner})</div>
+                    </>
+                  )}
+
+                  {data.isContractOwner ? (
+                    <>
+                      <div className='text-md mr-4 mt-4 text-right text-white'>Renounce Contract Ownership:</div>
+                      <div className='mt-4 w-1/2 text-white'>
+                        <Button onClick={renounceOwnershipHandler} variant='outline-primary' size='sm'>
+                          {' '}
+                          Renounce Contract Ownership
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className='text-md mr-4 mt-4 text-right text-white line-through'>Renounce Contract Ownership:</div>
+                      <div className='mt-4 w-1/2 text-white'>This function is only available to the contract owner ({data.contractOwner})</div>
+                    </>
+                  )}
                 </>
               )}
             </>

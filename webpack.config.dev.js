@@ -65,7 +65,7 @@ module.exports = {
     chunkFilename: '[name].chunk.js',
   },
   plugins: [
-    ...require('./webpack.secrets.dev'),
+    ...require('./webpack.secrets.dev.js'),
     new ForkTsCheckerWebpackPlugin(),
     new webpack.HotModuleReplacementPlugin(),
     new ReactRefreshWebpackPlugin(),
