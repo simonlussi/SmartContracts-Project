@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { ethers, BigNumber } from 'ethers';
+import { ethers, BigNumber, BigNumberish } from 'ethers';
 import BUSDJson from '../contracts/BUSD.json';
 import logo from '../assets/images/logo-white-small.png';
 import Button from 'react-bootstrap/Button';
@@ -70,10 +70,10 @@ export default function App() {
     contractTotalSupply: null,
   });
   const [rpcProvider, setRpcProvider] = useState<Web3RpcProvider>({
-    url: `https://rpc-mumbai.maticvigil.com/v1/${process.env.MATICVIGIL_API_KEY}`,
-    maxBlock: 1000,
-    maxQueriesPerMinute: 660,
-    maxQueriesPerSeconds: 20,
+    url: null,
+    maxBlock: null,
+    maxQueriesPerMinute: null,
+    maxQueriesPerSeconds: null,
   })
   const [events, setEvents] = useState<Web3EventsData>({
     allEvents: [],
@@ -90,16 +90,23 @@ export default function App() {
     if (event.target.value === 'alchemy') {
       setRpcProvider({
         url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-        maxBlock: 999999999999,
-        maxQueriesPerMinute: 999999999999,
-        maxQueriesPerSeconds: 999999999999,
+        maxBlock: 999999999,
+        maxQueriesPerMinute: 999999999,
+        maxQueriesPerSeconds: 999999999,
       });
-    } else {
+    } else if (event.target.value === 'maticvigil') {
       setRpcProvider({
         url: `https://rpc-mumbai.maticvigil.com/v1/${process.env.MATICVIGIL_API_KEY}`,
         maxBlock: 1000,
         maxQueriesPerMinute: 1400,
         maxQueriesPerSeconds: 40,
+      });
+    } else {
+      setRpcProvider({
+        url: null,
+        maxBlock: null,
+        maxQueriesPerMinute: null,
+        maxQueriesPerSeconds: null,
       });
     }
   }
@@ -261,9 +268,7 @@ export default function App() {
         _contract.on('Transfer', (senderAddress, recipientAddress, Amount) => {
           if (senderAddress.toLowerCase() === _account.toLowerCase() || recipientAddress.toLowerCase() === _account.toLowerCase()) {
             notificationsRef?.current.setSuccess(
-              `Transferred amount BUSD ${Amount.div(
-                BigNumber.from(10).pow(BigNumber.from(_contractDecimals)),
-              ).toNumber()} from "${senderAddress}" to "${recipientAddress}"`,
+              `Transferred amount BUSD ${ethers.utils.formatUnits(Amount, _contractDecimals)} from "${senderAddress}" to "${recipientAddress}"`,
             );
             notificationsRef?.current.setInfo('Refreshing...');
             updateEthers();
@@ -272,9 +277,7 @@ export default function App() {
         _contract.on('Approval', (ownerAddress, spenderAddress, Amount) => {
           if (ownerAddress.toLowerCase() === _account.toLowerCase() || spenderAddress.toLowerCase() === _account.toLowerCase()) {
             notificationsRef?.current.setSuccess(
-              `Appoved allowance amount BUSD ${Amount.div(
-                BigNumber.from(10).pow(BigNumber.from(_contractDecimals)),
-              ).toNumber()} from owner "${ownerAddress}" to "${spenderAddress}"`,
+              `Appoved allowance amount BUSD ${ethers.utils.formatUnits(Amount, _contractDecimals)} from owner "${ownerAddress}" to "${spenderAddress}"`,
             );
             notificationsRef?.current.setInfo('Refreshing...');
             updateEthers();
@@ -438,9 +441,7 @@ export default function App() {
       try {
         const _spenderAllowance = await staticData.contract.allowance(event.target.ownerAddress.value, event.target.spenderAddress.value);
         setSpenderAllowance(
-          `Allowance of ${_spenderAllowance
-            .div(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals)))
-            .toNumber()} for spender ${event.target.spenderAddress.value}`,
+          `Allowance of ${ethers.utils.formatUnits(_spenderAllowance, staticData.contractDecimals)} for spender ${event.target.spenderAddress.value}`,
         );
       } catch (error) {
         notificationsRef?.current.setWarning(error.message);
@@ -604,11 +605,12 @@ export default function App() {
             <>
               <div className="w-full text-center">
                 <Form.Select onChange={changeRpcProvider} className="w-auto inline-block">
+                  <option value={null}>...Choose a RPC provider</option>
                   <option value="maticvigil">https://rpc-mumbai.maticvigil.com</option>
                   <option value="alchemy">https://polygon-mumbai.g.alchemy.com</option>
                 </Form.Select>
               </div>
-              <Button variant='outline-primary' size='lg' className="mt-4" onClick={connectWalletHandler}>
+              <Button variant='outline-primary' size='lg' className="mt-4" onClick={connectWalletHandler} disabled={rpcProvider.url === null}>
                 Connect Meta Mask Wallet
               </Button>
             </>
@@ -765,18 +767,16 @@ export default function App() {
             {Object.entries(
               events.userApprovalEvents.reduce((accumulator, event) => {
                 if (!accumulator[event.args[1]]) {
-                  accumulator[event.args[1]] = 0;
+                  accumulator[event.args[1]] = BigNumber.from(0);
                 }
-                accumulator[event.args[1]] += event.args[2]
-                  .div(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals)))
-                  .toNumber();
+                accumulator[event.args[1]] = accumulator[event.args[1]].add(event.args[2]);
                 return accumulator;
               }, {}),
             )
-              .filter((allowance: [string, number]) => allowance[1] > 0)
+              .filter((allowance: [string, BigNumber]) => allowance[1].gt(BigNumber.from(0)))
               .map((allowance: [string, number]) => (
                 <div key={allowance[0]} className='grid grid-cols-2'>
-                  <div className='mr-4 mt-4 text-right text-white'>Amount: {allowance[1]}</div>
+                  <div className='mr-4 mt-4 text-right text-white'>Amount: {ethers.utils.formatUnits(allowance[1], staticData.contractDecimals)}</div>
                   <div className='mt-4 text-left text-white'>Spender : {allowance[0]}</div>
                 </div>
               ))}
@@ -795,7 +795,7 @@ export default function App() {
                   {event.event === 'Transfer' ? 'Sender' : 'Owner'} : {event.args[0]}
                 </div>
                 <div className='mr-4 text-right text-white'>
-                  Amount: {event.args[2].div(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))).toNumber()}
+                  Amount: {ethers.utils.formatUnits(event.args[2], staticData.contractDecimals)}
                 </div>
                 <div className='text-left text-white'>
                   {event.event === 'Transfer' ? 'Recipient' : 'Spender'} : {event.args[1]}
@@ -817,7 +817,7 @@ export default function App() {
                   {event.event === 'Transfer' ? 'Sender' : 'Owner'} : {event.args[0]}
                 </div>
                 <div className='mr-4 text-right text-white'>
-                  Amount: {event.args[2].div(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))).toNumber()}
+                  Amount: {ethers.utils.formatUnits(event.args[2], staticData.contractDecimals)}
                 </div>
                 <div className='text-left text-white'>
                   {event.event === 'Transfer' ? 'Recipient' : 'Spender'} : {event.args[1]}
