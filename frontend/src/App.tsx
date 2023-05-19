@@ -1,9 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { ethers, BigNumber, BigNumberish } from 'ethers';
+import { ethers, BigNumber } from 'ethers';
 import BUSDJson from '../contracts/BUSD.json';
 import logo from '../assets/images/logo-white-small.png';
 import Button from 'react-bootstrap/Button';
-import Form from 'react-bootstrap/Form';
 import Notifications, { NotificationsElement } from './components/Notifications';
 
 type Address = `/^(0x)?[0-9a-fA-F]{40}$/`;
@@ -12,13 +11,13 @@ interface StaticWeb3Data {
   provider: ethers.providers.Web3Provider;
   signer: ethers.providers.JsonRpcSigner;
   contract: ethers.Contract;
-  contractSymbol: string;
-  contractDecimals: number;
   updateInterval: NodeJS.Timer;
   account: Address;
 }
 
 interface Web3Data {
+  contractSymbol: string;
+  contractDecimals: number;
   balance: string;
   contractOwner: Address;
   isContractOwner: boolean;
@@ -34,19 +33,10 @@ interface Web3EventsData {
   approvalLastBlock: number;
   transferLastBlock: number;
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
-
-interface Web3RpcProvider {
-  url: string;
-  maxBlock: number;
-  maxQueriesPerMinute: number;
-  maxQueriesPerSeconds: number;
-}
 
 export default function App() {
   // constants
   const contractAddress = '0x15A40d37e6f8A478DdE2cB18c83280D472B2fC35';
-  const contractTransactionHash = '0x42b975256af426d6dc691d37dd95821d3120f4db38e52239f40627c56761f7e3';
   const contractABI = BUSDJson.abi;
   const chainId = 80001;
 
@@ -57,24 +47,18 @@ export default function App() {
     provider: null,
     signer: null,
     contract: null,
-    contractSymbol: null,
-    contractDecimals: null,
     updateInterval: null,
     account: null,
   });
   const [data, setData] = useState<Web3Data>({
+    contractSymbol: null,
+    contractDecimals: null,
     balance: null,
     contractOwner: null,
     isContractOwner: null,
     contractBalance: null,
     contractTotalSupply: null,
   });
-  const [rpcProvider, setRpcProvider] = useState<Web3RpcProvider>({
-    url: null,
-    maxBlock: null,
-    maxQueriesPerMinute: null,
-    maxQueriesPerSeconds: null,
-  })
   const [events, setEvents] = useState<Web3EventsData>({
     allEvents: [],
     userEvents: [],
@@ -84,32 +68,7 @@ export default function App() {
   });
   const [spenderAllowance, setSpenderAllowance] = useState<string>(null);
   
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  const changeRpcProvider = (event: any) => {
-    event.preventDefault();
-    if (event.target.value === 'alchemy') {
-      setRpcProvider({
-        url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-        maxBlock: 999999999,
-        maxQueriesPerMinute: 999999999,
-        maxQueriesPerSeconds: 999999999,
-      });
-    } else if (event.target.value === 'maticvigil') {
-      setRpcProvider({
-        url: `https://rpc-mumbai.maticvigil.com/v1/${process.env.MATICVIGIL_API_KEY}`,
-        maxBlock: 1000,
-        maxQueriesPerMinute: 1400,
-        maxQueriesPerSeconds: 40,
-      });
-    } else {
-      setRpcProvider({
-        url: null,
-        maxBlock: null,
-        maxQueriesPerMinute: null,
-        maxQueriesPerSeconds: null,
-      });
-    }
-  }
+  
   // connect function
   const connectWalletHandler = async () => {
     if (window.ethereum && window.ethereum.isMetaMask) {
@@ -190,12 +149,12 @@ export default function App() {
         provider: null,
         signer: null,
         contract: null,
-        contractSymbol: null,
-        contractDecimals: null,
         updateInterval: null,
         account: null,
       });
       setData({
+        contractSymbol: null,
+        contractDecimals: null,
         balance: null,
         contractOwner: null,
         isContractOwner: null,
@@ -233,6 +192,35 @@ export default function App() {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  const fetchBackend = async (path: string, params: {name: string, value: string}[], method: string = 'GET') => {
+    const searchParams = new URLSearchParams();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 15 * 1000);
+    if (params.length > 0) {
+      params.forEach((param) => {
+        searchParams.append(param.name, param.value);
+      })
+    } 
+    try {
+      const response = await fetch(`${process.env.BACKEND_URL}${path}?${searchParams}`, {
+        signal: controller.signal,
+        method
+      });
+      if (!response.ok) {
+        notificationsRef?.current.setWarning('The request to the backend was unsuccessfull')
+        return null;
+      }
+      return await response.json();
+    } catch (error) {
+      notificationsRef?.current.setWarning('The request to the backend was unsuccessfull')
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   const updateEthers = async (updateStatic = false) => {
     try {
       // Initialize wallet
@@ -248,161 +236,77 @@ export default function App() {
 
       // Get BUSD contract
       const _contract = new ethers.Contract(contractAddress, contractABI, _signer);
-
-      // Get Token Data from contract
-      const _contractSymbol = await _contract.symbol();
-      const _contractDecimals = await _contract.decimals();
-      const _contractOwner = await _contract.owner();
-      const _isContractOwner = _contractOwner.toLowerCase() === _account.toLowerCase();
-
-      // Get BUSD Balance
-      const _contractBalance = ethers.utils.formatUnits(await _contract.balanceOf(_account), _contractDecimals);
-
-      //Get BUSD Total Supply
-      const _contractTotalSupply = ethers.utils.formatUnits(await _contract.totalSupply(), _contractDecimals);
-
+      
+      //Get BUSD data from backend
+      const _contractData = await fetchBackend('/contract',[],'GET');
+      console.log(_contractData);
+      const _contractBalance = await fetchBackend('/balance', [{name: 'owner', value: _account}])
+      console.log(_contractBalance);
       if (updateStatic) {
-        if (staticData.contract) {
-          staticData.contract.removeAllListeners();
-        }
-        _contract.on('Transfer', (senderAddress, recipientAddress, Amount) => {
-          if (senderAddress.toLowerCase() === _account.toLowerCase() || recipientAddress.toLowerCase() === _account.toLowerCase()) {
-            notificationsRef?.current.setSuccess(
-              `Transferred amount BUSD ${ethers.utils.formatUnits(Amount, _contractDecimals)} from "${senderAddress}" to "${recipientAddress}"`,
-            );
-            notificationsRef?.current.setInfo('Refreshing...');
-            updateEthers();
-          }
-        });
-        _contract.on('Approval', (ownerAddress, spenderAddress, Amount) => {
-          if (ownerAddress.toLowerCase() === _account.toLowerCase() || spenderAddress.toLowerCase() === _account.toLowerCase()) {
-            notificationsRef?.current.setSuccess(
-              `Appoved allowance amount BUSD ${ethers.utils.formatUnits(Amount, _contractDecimals)} from owner "${ownerAddress}" to "${spenderAddress}"`,
-            );
-            notificationsRef?.current.setInfo('Refreshing...');
-            updateEthers();
-          }
-        });
-        /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
-        _contract.on('OwnershipTransferred', (oldOwnerAddress, newOwnerAddress, Amount) => {
-          if (oldOwnerAddress.toLowerCase() === _account.toLowerCase() || newOwnerAddress.toLowerCase() === _account.toLowerCase()) {
-            notificationsRef?.current.setSuccess(`Contract ownership transferred from "${oldOwnerAddress}" to "${newOwnerAddress}"`);
-            notificationsRef?.current.setInfo('Refreshing...');
-            updateEthers();
-          }
-        });
         setStaticData({
           provider: _provider,
           signer: _signer,
           contract: _contract,
-          contractSymbol: _contractSymbol,
-          contractDecimals: _contractDecimals,
           updateInterval: null,
           account: _account,
         });
       }
 
       setData({
+        contractSymbol: _contractData.symbol,
+        contractDecimals: _contractData.decimals,
         balance: _balance,
-        contractOwner: _contractOwner,
-        isContractOwner: _isContractOwner,
-        contractBalance: _contractBalance,
-        contractTotalSupply: _contractTotalSupply,
+        contractOwner: _contractData.owner,
+        isContractOwner: _contractData.owner.toLowerCase() === _account.toLowerCase(),
+        contractBalance: ethers.utils.formatUnits(_contractBalance, _contractData.decimals),
+        contractTotalSupply: ethers.utils.formatUnits(_contractData.totalSupply, _contractData.decimals),
       });
 
       // Events
-      const _eventsContract = new ethers.Contract(contractAddress, contractABI, new ethers.providers.JsonRpcProvider(rpcProvider.url));
-      // Calculate Blocks
-      let _transferFromBlockNumber =
-        events.transferLastBlock > 0 ? events.transferLastBlock : (await _provider.getTransaction(contractTransactionHash)).blockNumber;
-      let _approvalFromBlockNumber =
-        events.approvalLastBlock > 0 ? events.approvalLastBlock : (await _provider.getTransaction(contractTransactionHash)).blockNumber;
-      const _toBlockNumber = (await _provider.getBlock('latest')).number;
-      // Get event filters
-      const _transferFilter = _eventsContract.filters.Transfer();
-      const _approvalFilter = _eventsContract.filters.Approval();
-      
-      let _transfer: any[] = [];
-      let _approval: any[] = [];
-      
-      // Initiate
-      let iterate = true;
-      let numberOfQueriesPerSecond = 0;
-      let numberOfQueriesPerMinute = 0;
-      let startMinute = new Date().getTime();
-      while (iterate) {
-        try {
-          let start = new Date().getTime();
-          
-          const queries= {
-            transfer: [] as Promise<any>[],
-            approval: [] as Promise<any>[]
-          };
-          let firstBlock = _transferFromBlockNumber;
-          let eventType = 'Transfer';
-          for (let i = _transferFromBlockNumber; i <= _toBlockNumber && numberOfQueriesPerMinute < rpcProvider.maxQueriesPerMinute && numberOfQueriesPerSecond < rpcProvider.maxQueriesPerSeconds; i += rpcProvider.maxBlock) {
-            const _startBlock = i;
-            const _endBlock = Math.min(_toBlockNumber, i + rpcProvider.maxBlock - 1);
-            queries.transfer.push(_eventsContract.queryFilter(_transferFilter, _startBlock, _endBlock).catch((error) => { throw error}));
-            numberOfQueriesPerSecond++;
-            numberOfQueriesPerMinute++;
-            _transferFromBlockNumber = _endBlock + 1;
-          }
-          let lastBlock = _transferFromBlockNumber;
-
-          if (queries.transfer.length === 0) {
-            firstBlock = _approvalFromBlockNumber;
-            eventType = 'Approval'
-          }
-          for (let i = _approvalFromBlockNumber; i <= _toBlockNumber && numberOfQueriesPerMinute < rpcProvider.maxQueriesPerMinute && numberOfQueriesPerSecond < rpcProvider.maxQueriesPerSeconds; i += rpcProvider.maxBlock) {
-            const _startBlock = i;
-            const _endBlock = Math.min(_toBlockNumber, i + rpcProvider.maxBlock - 1);
-            queries.approval.push(_eventsContract.queryFilter(_approvalFilter, _startBlock, _endBlock).catch((error) => { throw error}));
-            numberOfQueriesPerSecond++;
-            numberOfQueriesPerMinute++;
-            _approvalFromBlockNumber = _endBlock + 1;
-          }
-          if (queries.transfer.length === 0) {
-            lastBlock = _approvalFromBlockNumber;
-          }
-          notificationsRef?.current.setInfo(`Retrieving ${eventType} Events from block ${firstBlock} to block ${lastBlock} (latest block: ${_toBlockNumber}, retrieval rate max ${rpcProvider.maxQueriesPerSeconds * rpcProvider.maxBlock} block per second or ${rpcProvider.maxQueriesPerMinute * rpcProvider.maxBlock} block per minute)`)
-          if (queries.transfer.length > 0) {
-            _transfer = [..._transfer, ...await Promise.all(queries.transfer)];
-            _transfer = _transfer.flat(1);
-          }
-          if (queries.approval.length > 0) {
-            _approval = [..._approval, ...await Promise.all(queries.approval)];
-            _approval = _approval.flat(1);
-          }
-          if (_approvalFromBlockNumber >= _toBlockNumber && _transferFromBlockNumber >= _toBlockNumber) {
-            iterate = false
-          }
-          while (new Date().getTime() < start + 1000) {
-            await sleep(1000);
-          }
-          numberOfQueriesPerSecond = 0;
-          if (numberOfQueriesPerMinute >= rpcProvider.maxQueriesPerMinute) {
-            while (new Date().getTime() < startMinute + 1000 * 60) {
-              await sleep(5000);
-            }
-            numberOfQueriesPerMinute = 0;
-            startMinute = new Date().getTime();
-          }
-        } catch(error) {
-          notificationsRef?.current.setWarning(`An error occured, waiting 30 seconds before resuming. Error: ${error.message}`);
-          await sleep(30000);
-        }
-      }
+      let _transfer = (await fetchBackend('/transfer', [], 'GET')).map((x: any) => ({...x, type: 'Transfer'}));
+      let _approval = (await fetchBackend('/approval', [], 'GET')).map((x: any) => ({...x, type: 'Approval'}));
       
       const _allEvents = [..._transfer, ..._approval];
-      _allEvents.sort((a, b) => a.blockNumber - b.blockNumber);
+      _allEvents.sort((a, b) => a.blockTimestamp - b.blockTimestamp);
       const _userEvents = _allEvents.filter(
-        (event) => event.args[0].toLowerCase() === _account.toLowerCase() || event.args[1].toLowerCase() === _account.toLowerCase(),
+        (event) => (event.type === 'Approval' && (event.owner === _account.toLowerCase() || event.spender === _account.toLowerCase())) || (event.type === 'Transfer' && (event.sender === _account.toLowerCase() || event.recipient === _account.toLowerCase())),
       );
       const _userApprovalEvents = _userEvents.filter(
-        (event) => event.event === 'Approval' && event.args[0].toLowerCase() === _account.toLowerCase(),
+        (event) => event.type === 'Approval' && event.owner.toLowerCase() === _account.toLowerCase(),
       );
+
+      _transfer.sort((a: any, b: any) => a.blockTimestamp - b.blockTimestamp);
+
+      const _dailyVolumes = _transfer.reduce((acc: any, curr: any) => {
+        const date = new Intl.DateTimeFormat("fr-CA", {year: "numeric", month: "2-digit", day: "2-digit"}).format(new Date(curr.blockTimestamp));
+        if (!acc[date]) acc[date] = curr.amount;
+        else acc[date].add(curr.amount)
+        return acc;
+      }, {});
+
+      const _dailyTransfers = _transfer.reduce((acc: any, curr: any) => {
+        const date = new Intl.DateTimeFormat("fr-CA", {year: "numeric", month: "2-digit", day: "2-digit"}).format(new Date(curr.blockTimestamp));
+        if (!acc[date]) acc[date] = 0;
+        else acc[date] = acc[date] + 1;
+        return acc;
+      }, {});
+
+      console.log(_dailyVolumes);
+      console.log(_dailyTransfers);
+
+      const _dailyVolumesChartData = Object.keys(_dailyVolumes).reduce((acc: any, curr: any) => {
+        acc.push({ time: curr, value: _dailyVolumes[curr] });
+        return acc;
+      },[]).sort((a: any, b: any) => new Date(a.time) < new Date(b.time) ? -1 : 1);
       
+      const _dailyTransfersChartData = Object.keys(_dailyTransfers).reduce((acc: any, curr: any) => {
+        acc.push({ time: curr, value: _dailyTransfers[curr] });
+        return acc;
+      },[]).sort((a: any, b: any) => new Date(a.time) < new Date(b.time) ? -1 : 1);
+
+      console.log(_dailyVolumes);
+      console.log(_dailyTransfers);
+
       setEvents({
         allEvents: [...events.allEvents, ..._allEvents],
         userEvents: [...events.userEvents, ..._userEvents],
@@ -423,8 +327,6 @@ export default function App() {
           provider: _provider,
           signer: _signer,
           contract: _contract,
-          contractSymbol: _contractSymbol,
-          contractDecimals: _contractDecimals,
           updateInterval: _updateInterval,
           account: _account,
         });
@@ -438,14 +340,10 @@ export default function App() {
   const allowanceHandler = async (event: any) => {
     event.preventDefault();
     if (ethers.utils.isAddress(event.target.spenderAddress.value) && ethers.utils.isAddress(event.target.ownerAddress.value)) {
-      try {
-        const _spenderAllowance = await staticData.contract.allowance(event.target.ownerAddress.value, event.target.spenderAddress.value);
-        setSpenderAllowance(
-          `Allowance of ${ethers.utils.formatUnits(_spenderAllowance, staticData.contractDecimals)} for spender ${event.target.spenderAddress.value}`,
-        );
-      } catch (error) {
-        notificationsRef?.current.setWarning(error.message);
-      }
+      const _spenderAllowance = await fetchBackend('/allowance',[{name: 'owner', value: event.target.ownerAddress.value}, {name: 'spender', value: event.target.spenderAddress.value}],'GET');
+      setSpenderAllowance(
+        `Allowance of ${ethers.utils.formatUnits(_spenderAllowance, data.contractDecimals)} for spender ${event.target.spenderAddress.value}`,
+      );
     } else {
       setSpenderAllowance(null);
       notificationsRef?.current.setWarning('Invalid address');
@@ -460,7 +358,7 @@ export default function App() {
     if (event.target.amount.value > 0) {
       try {
         const _mint = await staticData.contract.mint(
-          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
+          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(data.contractDecimals))),
         );
         notificationsRef?.current.setInfo(`Mint trx "${_mint.hash}" awaiting confirmation...`);
       } catch (error) {
@@ -478,7 +376,7 @@ export default function App() {
     if (event.target.amount.value > 0) {
       try {
         const _burn = await staticData.contract.burn(
-          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
+          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(data.contractDecimals))),
         );
         notificationsRef?.current.setInfo(`Burn trx "${_burn.hash}" awaiting confirmation...`);
       } catch (error) {
@@ -497,7 +395,7 @@ export default function App() {
       try {
         const _approve = await staticData.contract.approve(
           event.target.spenderAddress.value,
-          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
+          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(data.contractDecimals))),
         );
         notificationsRef?.current.setInfo(`Approve trx "${_approve.hash}" awaiting confirmation...`);
       } catch (error) {
@@ -517,7 +415,7 @@ export default function App() {
       try {
         const _transfer = await staticData.contract.transfer(
           event.target.recipientAddress.value,
-          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
+          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(data.contractDecimals))),
         );
         notificationsRef?.current.setInfo(`Transfer trx "${_transfer.hash}" awaiting confirmation...`);
       } catch (error) {
@@ -542,7 +440,7 @@ export default function App() {
         const _transferFrom = await staticData.contract.transferFrom(
           event.target.spenderAddress.value,
           event.target.recipientAddress.value,
-          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(staticData.contractDecimals))),
+          BigNumber.from(event.target.amount.value).mul(BigNumber.from(10).pow(BigNumber.from(data.contractDecimals))),
         );
         notificationsRef?.current.setInfo(`Transfer from trx "${_transferFrom.hash}" awaiting confirmation...`);
       } catch (error) {
@@ -581,6 +479,11 @@ export default function App() {
     }
   };
 
+  const resetDatabaseHandler = async () => {
+    await fetchBackend('/all',[],'DELETE');
+    notificationsRef?.current.setSuccess('The database has been deleted');
+  }
+
   return (
     <>
       <div className='logo fixed top-2 flex flex-row content-center'>
@@ -591,30 +494,33 @@ export default function App() {
       <div className='fixed bottom-0 top-24 w-screen overflow-scroll text-center'>
         <div className='text-center'>
           {staticData.updateInterval ? (
-            <Button
-              variant='outline-primary'
-              size='lg'
-              onClick={() => {
-                notificationsRef?.current.setInfo('Refreshing...');
-                updateEthers();
-              }}
-            >
-              Refresh
-            </Button>
-          ) : (
             <>
-              <div className="w-full text-center">
-                <Form.Select onChange={changeRpcProvider} className="w-auto inline-block">
-                  <option value={null}>...Choose a RPC provider</option>
-                  <option value="maticvigil">https://rpc-mumbai.maticvigil.com</option>
-                  <option value="alchemy">https://polygon-mumbai.g.alchemy.com</option>
-                </Form.Select>
-              </div>
-              <Button variant='outline-primary' size='lg' className="mt-4" onClick={connectWalletHandler} disabled={rpcProvider.url === null}>
-                Connect Meta Mask Wallet
+              <Button
+                variant='outline-primary'
+                size='lg'
+                onClick={() => {
+                  notificationsRef?.current.setInfo('Refreshing...');
+                  updateEthers();
+                }}
+              >
+                Refresh
+              </Button>
+              <br />
+              <Button
+                variant='outline-danger'
+                size='lg'
+                onClick={() => {
+                  notificationsRef?.current.setWarning('Deleting database...');
+                  resetDatabaseHandler();
+                }}
+              >
+                Delete backend database
               </Button>
             </>
-            
+          ) : (
+            <Button variant='outline-primary' size='lg' className="mt-4" onClick={connectWalletHandler}>
+              Connect Meta Mask Wallet
+            </Button>            
           )}
         </div>
         <div className='grid grid-cols-2 text-left'>
@@ -629,7 +535,7 @@ export default function App() {
 
               <div className='mr-4 mt-4 text-right text-white'>Contract Balance :</div>
               <div className='mt-4 w-1/2 text-white'>
-                {staticData.contractSymbol}{' '}
+                {data.contractSymbol}{' '}
                 {Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
                   parseFloat(data.contractBalance),
                 )}
@@ -637,7 +543,7 @@ export default function App() {
 
               <div className='mr-4 mt-4 text-right text-white'>Contract Total Supply :</div>
               <div className='mt-4 w-1/2 text-white'>
-                {staticData.contractSymbol}{' '}
+                {data.contractSymbol}{' '}
                 {Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
                   parseFloat(data.contractTotalSupply),
                 )}
@@ -766,17 +672,17 @@ export default function App() {
             </div>
             {Object.entries(
               events.userApprovalEvents.reduce((accumulator, event) => {
-                if (!accumulator[event.args[1]]) {
-                  accumulator[event.args[1]] = BigNumber.from(0);
+                if (!accumulator[event.spender]) {
+                  accumulator[event.spender] = BigNumber.from(0);
                 }
-                accumulator[event.args[1]] = accumulator[event.args[1]].add(event.args[2]);
+                accumulator[event.spender] = accumulator[event.spender].add(event.amount);
                 return accumulator;
               }, {}),
             )
               .filter((allowance: [string, BigNumber]) => allowance[1].gt(BigNumber.from(0)))
               .map((allowance: [string, number]) => (
                 <div key={allowance[0]} className='grid grid-cols-2'>
-                  <div className='mr-4 mt-4 text-right text-white'>Amount: {ethers.utils.formatUnits(allowance[1], staticData.contractDecimals)}</div>
+                  <div className='mr-4 mt-4 text-right text-white'>Amount: {ethers.utils.formatUnits(allowance[1], data.contractDecimals)}</div>
                   <div className='mt-4 text-left text-white'>Spender : {allowance[0]}</div>
                 </div>
               ))}
@@ -789,16 +695,16 @@ export default function App() {
               <div className='text-primary mt-8 text-left text-xl'>Last 10 Events for the current Account</div>
             </div>
             {events.userEvents.slice(-Math.min(10, events.userEvents.length)).map((event) => (
-              <div key={event.transactionHash} className='grid grid-cols-2'>
-                <div className='mr-4 mt-4 text-right text-white'>Event : {event.event}</div>
+              <div key={event._id} className='grid grid-cols-2'>
+                <div className='mr-4 mt-4 text-right text-white'>Event : {event.type}</div>
                 <div className='mt-4 text-left text-white'>
-                  {event.event === 'Transfer' ? 'Sender' : 'Owner'} : {event.args[0]}
+                  {event.type === 'Transfer' ? 'Sender : ' + event.sender : 'Owner : ' + event.owner}
                 </div>
                 <div className='mr-4 text-right text-white'>
-                  Amount: {ethers.utils.formatUnits(event.args[2], staticData.contractDecimals)}
+                  Amount: {ethers.utils.formatUnits(event.amount, data.contractDecimals)}
                 </div>
                 <div className='text-left text-white'>
-                  {event.event === 'Transfer' ? 'Recipient' : 'Spender'} : {event.args[1]}
+                  {event.type === 'Transfer' ? 'Recipient : ' + event.recipient : 'Spender : ' + event.spender}
                 </div>
               </div>
             ))}
@@ -811,16 +717,16 @@ export default function App() {
               <div className='text-primary mt-8 text-left text-xl'>Last 10 Events</div>
             </div>
             {events.allEvents.slice(-Math.min(10, events.allEvents.length)).map((event) => (
-              <div key={event.transactionHash} className='grid grid-cols-2'>
-                <div className='mr-4 mt-4 text-right text-white'>Event : {event.event}</div>
+              <div key={event._id} className='grid grid-cols-2'>
+                <div className='mr-4 mt-4 text-right text-white'>Event : {event.type}</div>
                 <div className='mt-4 text-left text-white'>
-                  {event.event === 'Transfer' ? 'Sender' : 'Owner'} : {event.args[0]}
+                {event.type === 'Transfer' ? 'Sender : ' + event.sender : 'Owner : ' + event.owner}
                 </div>
                 <div className='mr-4 text-right text-white'>
-                  Amount: {ethers.utils.formatUnits(event.args[2], staticData.contractDecimals)}
+                  Amount: {ethers.utils.formatUnits(event.amount, data.contractDecimals)}
                 </div>
                 <div className='text-left text-white'>
-                  {event.event === 'Transfer' ? 'Recipient' : 'Spender'} : {event.args[1]}
+                {event.type === 'Transfer' ? 'Recipient : ' + event.recipient : 'Spender : ' + event.spender}
                 </div>
               </div>
             ))}
@@ -830,3 +736,25 @@ export default function App() {
     </>
   );
 }
+
+/*
+
+const initialData = [
+	{ time: '2018-12-22', value: 32.51 },
+	{ time: '2018-12-23', value: 31.11 },
+	{ time: '2018-12-24', value: 27.02 },
+	{ time: '2018-12-25', value: 27.32 },
+	{ time: '2018-12-26', value: 25.17 },
+	{ time: '2018-12-27', value: 28.89 },
+	{ time: '2018-12-28', value: 25.46 },
+	{ time: '2018-12-29', value: 23.92 },
+	{ time: '2018-12-30', value: 22.68 },
+	{ time: '2018-12-31', value: 22.67 },
+];
+export function App(props) {
+	return (
+		<ChartComponent {...props} data={initialData}></ChartComponent>
+	);
+}
+
+*/

@@ -2,7 +2,7 @@
 
 Mini-project to learn about smart-contracts
 
-## Version 1: Basis
+## Version 1: Base
 
 - connexion a metamask correct (gestion de changement de compte, ajout network, check network, ...)
 - afficher le compte, le solde (MATIC & BUSD), le total supply, check allowance of a spender
@@ -10,7 +10,7 @@ Mini-project to learn about smart-contracts
 - si owner: transferOwnership, renounceOwnership
 - bouton refresh + refresh automatique toutes les minutes
 
-## Version 2: History
+## Version 2: Historique
 
 - utilisation d'event via function "getPastEvents" (ou equivalent ethers.js)
 - afficher les 10 dernieres actions effectuée sur ce token (approved, transfer)
@@ -18,7 +18,26 @@ Mini-project to learn about smart-contracts
 - voir l'allowance actuelle de l'utilisateur, lorsque celles-ci sont non-nulle de toutes les autres address que l'utilisateur a apprové
 - mettre un bouton refresh + refresh automatique toutes les minutes (pour refresh les info de v1 + les event de la v2)
 
-## Development
+## Version 3: Utilisation du backend
+- passer sur une vm (ou bien en localhost sur l'ordi) avec un backend. le front ne fait plus de requete a la blockchain (à par pour valider un transfer metamask), il doit s'appuyer 100% sur le backend pour toutes les données à afficher
+- le backend analyse et entretien une base de donnée sur toutes les donnée du contract (balance des compte, toutes les allowances, liste des transfers, ...)
+- au demarrage du backend celui ci regarde la db et va aller l'updater.
+- toutes les 30 minutes celui ci s'update (1min en mode dev eventuellement...)
+- REST api sur le backend: 
+- une commande api pour clear la db (DELETE /all)
+- plusieurs commande GET pour obtenir les données (allowance, liste des transfers, ... )
+- pas de commande POST/PUT, le backend s'update tout seul. ce n'est pas grave si les données ne sont pas a jour et sont en retard de 30min.
+- fais partir de l'update au demarrage et a chaque minute
+        -> analyse du volume journalier des transfer d'BUSD, via le listing des pasts event "transfer"
+        -> graph du volume dans le front (nombre de transfer et quantité transférée chaque jour)
+
+## Frontend
+
+The Frontend is in the `frontend`sub-directory
+
+### Development
+
+Move into the frontend directory
 
 create `webpack.secrets.dev.js` and `webpack.secrets.prod.js` and put the API keys (refer to `webpack.secrets.example.js`) 
 
@@ -26,9 +45,10 @@ create `webpack.secrets.dev.js` and `webpack.secrets.prod.js` and put the API ke
 - develop: `npm start`
 - lint: `npm run lint:check && npm run lint:fix`
 
-## Production
+### Production
 
 -build: `npm run build`
+- serve: `npm run serve`
 
 ### Documentation and tutorial
 
@@ -45,9 +65,8 @@ create `webpack.secrets.dev.js` and `webpack.secrets.prod.js` and put the API ke
 - Master Ethers.js for Blockchain Step-by-Step [Video](https://www.youtube.com/watch?v=yk7nVp5HTCk)
 - Error thrown upon changing network [Link here](https://github.com/Uniswap/web3-react/issues/127)
 - Ethers equivalent of web3 getPastEvents [Link here](https://github.com/ethers-io/ethers.js/issues/52)
-- Ether queryFilter iterate through blocks [Link here](https://ethereum.stackexchange.com/questions/107590/contract-queryfilterfilter-giving-me-errors-in-ethers-js)
+- Ethers queryFilter iterate through blocks [Link here](https://ethereum.stackexchange.com/questions/107590/contract-queryfilterfilter-giving-me-errors-in-ethers-js)
 
-## Production
+## Backend
 
-- build: `npm run build`
-- serve: `npm run serve`
+The backend is available in the `backend` sub-directory

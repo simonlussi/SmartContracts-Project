@@ -1,0 +1,10 @@
+
+webpack.secrets.dev.js
+webpack.secrets.prod.js
+.editorconfig
+
+# Dependency directories
+node_modules/
+
+# Distributions
+dist/

@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+
+  smart-contracts-database:
+    container_name: smart-contracts-database
+    hostname: smart-contracts-database
+    image: mongo
+    restart: always
+    volumes:
+      - ./volumes/data/db:/data/db
+    networks:
+      - smart-contracts-network
+
+  smart-contracts-backend:
+    container_name: smart-contracts-backend
+    hostname: smart-contracts-backend
+    restart: 'no'
+    command: node /usr/app/dist/src/index.js
+    build:
+      context: ./backend
+      target: development
+      dockerfile: ./Dockerfile
+    env_file:
+      - ./backend/.env
+    ports:
+      - 3000:3000
+    networks:
+      - smart-contracts-network
+
+  smart-contracts-frontend:
+    container_name: smart-contracts-frontend
+    hostname: smart-contracts-frontend
+    restart: unless-stopped
+    build:
+      context: ./frontend
+      target: development
+      dockerfile: ./Dockerfile
+    ports:
+      - 8080:8080
+    command: npm start
+
+networks:
+  smart-contracts-network:
+    driver: bridge

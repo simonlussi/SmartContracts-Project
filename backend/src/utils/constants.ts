@@ -1,0 +1,46 @@
+import dotenv from 'dotenv';
+import BUSDJson from '../../contracts/BUSD.json';
+dotenv.config();
+
+// constants
+const CONTRACT_ADDRESS = '0x15A40d37e6f8A478DdE2cB18c83280D472B2fC35';
+const CONTRACT_TRANSACTION_HASH = '0x42b975256af426d6dc691d37dd95821d3120f4db38e52239f40627c56761f7e3';
+const CONTRACT_ABI = BUSDJson.abi;
+const CONTRACT_NAME = 'BUSD Token';
+const CONTRACT_SYMBOL = 'BUSD';
+const CONTRACT_DECIMALS = 18;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+let RPC_PROVIDER = 'https://rpc-mumbai.maticvigil.com/';
+let MAX_BLOCKS = 1000;
+let MAX_QUERIES_PER_MINUTE = 150;
+let MAX_QUERIES_PER_SECOND = 5;
+
+if (process.env.PROVIDER === 'alchemy'){
+  RPC_PROVIDER = `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
+  MAX_BLOCKS = 999999999;
+  MAX_QUERIES_PER_MINUTE = 18000;
+  MAX_QUERIES_PER_SECOND = 300;
+} else if (process.env.PROVIDER === 'maticvigil') {
+  RPC_PROVIDER = `https://rpc-mumbai.maticvigil.com/v1/${process.env.MATICVIGIL_API_KEY}`;
+  MAX_BLOCKS = 1000;
+  MAX_QUERIES_PER_MINUTE = 1400;
+  MAX_QUERIES_PER_SECOND = 40;
+}
+
+const UPDATE_INTERVALL_MINUTES = parseInt(process.env.UPDATE_INTERVALL_MINUTES ||'') || 30;
+
+export {
+  CONTRACT_ADDRESS,
+  CONTRACT_TRANSACTION_HASH,
+  CONTRACT_ABI,
+  CONTRACT_NAME,
+  CONTRACT_SYMBOL,
+  CONTRACT_DECIMALS,
+  ZERO_ADDRESS,
+  RPC_PROVIDER,
+  MAX_BLOCKS,
+  MAX_QUERIES_PER_MINUTE,
+  MAX_QUERIES_PER_SECOND,
+  UPDATE_INTERVALL_MINUTES
+}
