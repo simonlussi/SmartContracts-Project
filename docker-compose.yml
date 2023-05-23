@@ -36,7 +36,7 @@ services:
       context: ./frontend
       target: production
       dockerfile: ./Dockerfile
-    port:
+    ports:
       - 80:80
     command: npm run serve
 

@@ -6,7 +6,6 @@ COPY ./package*.json ./
 COPY ./tsconfig.json ./
 COPY ./contracts ./contracts
 COPY ./src ./src
-COPY ./.env ./
 
 RUN npm ci && npm run build
 

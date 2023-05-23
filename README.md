@@ -56,10 +56,10 @@ From the main directory run:
 
 ### Production
 
-From the main directory run:
-- start: `make build`
-- stop: `make stop`
-- clean database: `make clean`
+From the main directory run (sudo is required to expose the frontend on port 80):
+- start: `sudo make build`
+- stop: `sudo make stop`
+- clean database: `sudo make clean`
 
 ### Documentation and tutorial
 
