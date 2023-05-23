@@ -13,32 +13,36 @@ interface Data {
   totalSupply: BigNumber;
 }
 
-interface DataMethods extends EtherMethods {};
-type DataModel = mongoose.Model<Data, {}, DataMethods>;
+type DataMethods = EtherMethods;
+type DataModel = mongoose.Model<Data, {}, DataMethods>; // eslint-disable-line @typescript-eslint/ban-types
 
-const schema = new mongoose.Schema<Data, DataModel, DataMethods>({
-  name: { type: String, required: true, default: CONTRACT_NAME },
-  symbol: { type: String, required: true, default: CONTRACT_SYMBOL },
-  owner: { type: mongoose.Schema.Types.EtherAddress, required: true },
-  decimals: { type: Number, required: true, default: CONTRACT_DECIMALS },
-  totalSupply: { type: mongoose.Schema.Types.Mixed, required: true }
-}, { capped: { max: 1 }});
+const schema = new mongoose.Schema<Data, DataModel, DataMethods>(
+  {
+    name: { type: String, required: true, default: CONTRACT_NAME },
+    symbol: { type: String, required: true, default: CONTRACT_SYMBOL },
+    owner: { type: mongoose.Schema.Types.EtherAddress, required: true },
+    decimals: { type: Number, required: true, default: CONTRACT_DECIMALS },
+    totalSupply: { type: mongoose.Schema.Types.Mixed, required: true },
+  },
+  { capped: { max: 1 } },
+);
 
 schema.methods.addAndSave = addAndSave;
 schema.methods.substractAndSave = substractAndSave;
 
-const model =  mongoose.model<Data, DataModel>('contract', schema);
+const model = mongoose.model<Data, DataModel>('contract', schema);
 
 // Functions
-async function getData(): Promise<mongoose.Document<unknown, any, Data> & Data & { _id: mongoose.Types.ObjectId; } & DataMethods> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getData(): Promise<mongoose.Document<unknown, any, Data> & Data & { _id: mongoose.Types.ObjectId } & DataMethods> {
   let data = await model.findOne();
   if (!data) {
     data = await new model({
       name: CONTRACT_NAME,
-      symbol: CONTRACT_SYMBOL, 
+      symbol: CONTRACT_SYMBOL,
       owner: ZERO_ADDRESS,
       decimals: CONTRACT_DECIMALS,
-      totalSupply: BigNumber.from(0)
+      totalSupply: BigNumber.from(0),
     }).save();
   }
   return data;
@@ -72,11 +76,8 @@ async function deleteData(): Promise<void> {
 // API Routes
 const router = express.Router();
 
-router.get(
-  '/',
-  async (req: express.Request, res: express.Response): Promise<void | express.Response> => {
-    res.status(200).json(await getData());
-  }
-);
+router.get('/', async (req: express.Request, res: express.Response): Promise<void | express.Response> => {
+  res.status(200).json(await getData());
+});
 
 export { getData, updateData, updateTotalSupply, deleteData, router };

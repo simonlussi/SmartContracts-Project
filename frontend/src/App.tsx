@@ -4,6 +4,7 @@ import BUSDJson from '../contracts/BUSD.json';
 import logo from '../assets/images/logo-white-small.png';
 import Button from 'react-bootstrap/Button';
 import Notifications, { NotificationsElement } from './components/Notifications';
+import ChartComponent from './components/Chart';
 
 type Address = `/^(0x)?[0-9a-fA-F]{40}$/`;
 
@@ -32,6 +33,8 @@ interface Web3EventsData {
   userApprovalEvents: any[];
   approvalLastBlock: number;
   transferLastBlock: number;
+  volumes: any[];
+  transfers: any[];
 }
 
 export default function App() {
@@ -65,10 +68,11 @@ export default function App() {
     userApprovalEvents: [],
     transferLastBlock: 0,
     approvalLastBlock: 0,
+    volumes: [],
+    transfers: [],
   });
   const [spenderAllowance, setSpenderAllowance] = useState<string>(null);
-  
-  
+
   // connect function
   const connectWalletHandler = async () => {
     if (window.ethereum && window.ethereum.isMetaMask) {
@@ -167,6 +171,8 @@ export default function App() {
         userApprovalEvents: [],
         transferLastBlock: 0,
         approvalLastBlock: 0,
+        volumes: [],
+        transfers: [],
       });
     }
   };
@@ -188,11 +194,7 @@ export default function App() {
     });
   }
 
-  const sleep = (ms: number) => {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  const fetchBackend = async (path: string, params: {name: string, value: string}[], method: string = 'GET') => {
+  const fetchBackend = async (path: string, params: { name: string; value: string }[], method = 'GET') => {
     const searchParams = new URLSearchParams();
     const controller = new AbortController();
     const timeout = setTimeout(() => {
@@ -201,25 +203,25 @@ export default function App() {
     if (params.length > 0) {
       params.forEach((param) => {
         searchParams.append(param.name, param.value);
-      })
-    } 
+      });
+    }
     try {
       const response = await fetch(`${process.env.BACKEND_URL}${path}?${searchParams}`, {
         signal: controller.signal,
-        method
+        method,
       });
       if (!response.ok) {
-        notificationsRef?.current.setWarning('The request to the backend was unsuccessfull')
+        notificationsRef?.current.setWarning('The request to the backend was unsuccessfull');
         return null;
       }
       return await response.json();
     } catch (error) {
-      notificationsRef?.current.setWarning('The request to the backend was unsuccessfull')
+      notificationsRef?.current.setWarning('The request to the backend was unsuccessfull');
       return null;
     } finally {
       clearTimeout(timeout);
     }
-  }
+  };
 
   const updateEthers = async (updateStatic = false) => {
     try {
@@ -236,12 +238,10 @@ export default function App() {
 
       // Get BUSD contract
       const _contract = new ethers.Contract(contractAddress, contractABI, _signer);
-      
+
       //Get BUSD data from backend
-      const _contractData = await fetchBackend('/contract',[],'GET');
-      console.log(_contractData);
-      const _contractBalance = await fetchBackend('/balance', [{name: 'owner', value: _account}])
-      console.log(_contractBalance);
+      const _contractData = await fetchBackend('/contract', [], 'GET');
+      const _contractBalance = await fetchBackend('/balance', [{ name: 'owner', value: _account }]);
       if (updateStatic) {
         setStaticData({
           provider: _provider,
@@ -263,49 +263,65 @@ export default function App() {
       });
 
       // Events
-      let _transfer = (await fetchBackend('/transfer', [], 'GET')).map((x: any) => ({...x, type: 'Transfer'}));
-      let _approval = (await fetchBackend('/approval', [], 'GET')).map((x: any) => ({...x, type: 'Approval'}));
-      
+      const _transfer = (await fetchBackend('/transfer', [], 'GET')).map((x: any) => ({ ...x, type: 'Transfer' }));
+      const _approval = (await fetchBackend('/approval', [], 'GET')).map((x: any) => ({ ...x, type: 'Approval' }));
+
       const _allEvents = [..._transfer, ..._approval];
       _allEvents.sort((a, b) => a.blockTimestamp - b.blockTimestamp);
       const _userEvents = _allEvents.filter(
-        (event) => (event.type === 'Approval' && (event.owner === _account.toLowerCase() || event.spender === _account.toLowerCase())) || (event.type === 'Transfer' && (event.sender === _account.toLowerCase() || event.recipient === _account.toLowerCase())),
+        (event) =>
+          (event.type === 'Approval' && (event.owner === _account.toLowerCase() || event.spender === _account.toLowerCase())) ||
+          (event.type === 'Transfer' && (event.sender === _account.toLowerCase() || event.recipient === _account.toLowerCase())),
       );
       const _userApprovalEvents = _userEvents.filter(
         (event) => event.type === 'Approval' && event.owner.toLowerCase() === _account.toLowerCase(),
       );
 
       _transfer.sort((a: any, b: any) => a.blockTimestamp - b.blockTimestamp);
-
       const _dailyVolumes = _transfer.reduce((acc: any, curr: any) => {
-        const date = new Intl.DateTimeFormat("fr-CA", {year: "numeric", month: "2-digit", day: "2-digit"}).format(new Date(curr.blockTimestamp));
+        const date = new Intl.DateTimeFormat('fr-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(
+          new Date(curr.blockTimestamp * 1000),
+        );
         if (!acc[date]) acc[date] = curr.amount;
-        else acc[date].add(curr.amount)
+        else acc[date] = BigNumber.from(acc[date]).add(BigNumber.from(curr.amount));
         return acc;
       }, {});
 
       const _dailyTransfers = _transfer.reduce((acc: any, curr: any) => {
-        const date = new Intl.DateTimeFormat("fr-CA", {year: "numeric", month: "2-digit", day: "2-digit"}).format(new Date(curr.blockTimestamp));
-        if (!acc[date]) acc[date] = 0;
+        const date = new Intl.DateTimeFormat('fr-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(
+          new Date(curr.blockTimestamp * 1000),
+        );
+        if (!acc[date]) acc[date] = 1;
         else acc[date] = acc[date] + 1;
         return acc;
       }, {});
 
-      console.log(_dailyVolumes);
-      console.log(_dailyTransfers);
+      let startTime = _transfer[0].blockTimestamp * 1000;
+      const endTime = _transfer[_transfer.length - 1].blockTimestamp * 1000;
 
-      const _dailyVolumesChartData = Object.keys(_dailyVolumes).reduce((acc: any, curr: any) => {
-        acc.push({ time: curr, value: _dailyVolumes[curr] });
-        return acc;
-      },[]).sort((a: any, b: any) => new Date(a.time) < new Date(b.time) ? -1 : 1);
-      
-      const _dailyTransfersChartData = Object.keys(_dailyTransfers).reduce((acc: any, curr: any) => {
-        acc.push({ time: curr, value: _dailyTransfers[curr] });
-        return acc;
-      },[]).sort((a: any, b: any) => new Date(a.time) < new Date(b.time) ? -1 : 1);
+      while (startTime < endTime) {
+        const date = new Intl.DateTimeFormat('fr-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(startTime));
+        if (!_dailyVolumes[date]) _dailyVolumes[date] = 0;
+        if (!_dailyTransfers[date]) _dailyTransfers[date] = 0;
+        startTime = startTime + 24 * 60 * 60 * 1000;
+      }
 
-      console.log(_dailyVolumes);
-      console.log(_dailyTransfers);
+      const _dailyVolumesChartData = Object.keys(_dailyVolumes)
+        .reduce((acc: any, curr: any) => {
+          acc.push({
+            time: curr,
+            value: parseFloat(ethers.utils.formatUnits(BigNumber.from(_dailyVolumes[curr]), _contractData.decimals)),
+          });
+          return acc;
+        }, [])
+        .sort((a: any, b: any) => (new Date(a.time) < new Date(b.time) ? -1 : 1));
+
+      const _dailyTransfersChartData = Object.keys(_dailyTransfers)
+        .reduce((acc: any, curr: any) => {
+          acc.push({ time: curr, value: _dailyTransfers[curr] });
+          return acc;
+        }, [])
+        .sort((a: any, b: any) => (new Date(a.time) < new Date(b.time) ? -1 : 1));
 
       setEvents({
         allEvents: [...events.allEvents, ..._allEvents],
@@ -313,6 +329,8 @@ export default function App() {
         userApprovalEvents: [...events.userApprovalEvents, ..._userApprovalEvents],
         transferLastBlock: _transfer.length > 0 ? _transfer[_transfer.length - 1].blockNumber : events.transferLastBlock,
         approvalLastBlock: _approval.length > 0 ? _approval[_approval.length - 1].blockNumber : events.approvalLastBlock,
+        volumes: _dailyVolumesChartData,
+        transfers: _dailyTransfersChartData,
       });
 
       if (updateStatic) {
@@ -340,9 +358,18 @@ export default function App() {
   const allowanceHandler = async (event: any) => {
     event.preventDefault();
     if (ethers.utils.isAddress(event.target.spenderAddress.value) && ethers.utils.isAddress(event.target.ownerAddress.value)) {
-      const _spenderAllowance = await fetchBackend('/allowance',[{name: 'owner', value: event.target.ownerAddress.value}, {name: 'spender', value: event.target.spenderAddress.value}],'GET');
+      const _spenderAllowance = await fetchBackend(
+        '/allowance',
+        [
+          { name: 'owner', value: event.target.ownerAddress.value },
+          { name: 'spender', value: event.target.spenderAddress.value },
+        ],
+        'GET',
+      );
       setSpenderAllowance(
-        `Allowance of ${ethers.utils.formatUnits(_spenderAllowance, data.contractDecimals)} for spender ${event.target.spenderAddress.value}`,
+        `Allowance of ${ethers.utils.formatUnits(_spenderAllowance, data.contractDecimals)} for spender ${
+          event.target.spenderAddress.value
+        }`,
       );
     } else {
       setSpenderAllowance(null);
@@ -480,9 +507,9 @@ export default function App() {
   };
 
   const resetDatabaseHandler = async () => {
-    await fetchBackend('/all',[],'DELETE');
+    await fetchBackend('/all', [], 'DELETE');
     notificationsRef?.current.setSuccess('The database has been deleted');
-  }
+  };
 
   return (
     <>
@@ -518,9 +545,9 @@ export default function App() {
               </Button>
             </>
           ) : (
-            <Button variant='outline-primary' size='lg' className="mt-4" onClick={connectWalletHandler}>
+            <Button variant='outline-primary' size='lg' className='mt-4' onClick={connectWalletHandler}>
               Connect Meta Mask Wallet
-            </Button>            
+            </Button>
           )}
         </div>
         <div className='grid grid-cols-2 text-left'>
@@ -628,7 +655,12 @@ export default function App() {
                       <div className='text-md mr-4 mt-4 text-right text-white'>Transfer Contract Ownership:</div>
                       <div className='mt-4 w-1/2 text-white'>
                         <form onSubmit={transferOwnershipHandler} className='flex flex-col'>
-                          <input id='newOwnerAddress' type='text' placeholder='New owner address' className='border border-white bg-black' />
+                          <input
+                            id='newOwnerAddress'
+                            type='text'
+                            placeholder='New owner address'
+                            className='border border-white bg-black'
+                          />
                           <Button type='submit' variant='outline-primary' size='sm'>
                             {' '}
                             Transfer Contract Ownership
@@ -639,7 +671,9 @@ export default function App() {
                   ) : (
                     <>
                       <div className='text-md mr-4 mt-4 text-right text-white line-through'>Transfer Contract Ownership:</div>
-                      <div className='mt-4 w-1/2 text-white'>This function is only available to the contract owner ({data.contractOwner})</div>
+                      <div className='mt-4 w-1/2 text-white'>
+                        This function is only available to the contract owner ({data.contractOwner})
+                      </div>
                     </>
                   )}
 
@@ -656,7 +690,9 @@ export default function App() {
                   ) : (
                     <>
                       <div className='text-md mr-4 mt-4 text-right text-white line-through'>Renounce Contract Ownership:</div>
-                      <div className='mt-4 w-1/2 text-white'>This function is only available to the contract owner ({data.contractOwner})</div>
+                      <div className='mt-4 w-1/2 text-white'>
+                        This function is only available to the contract owner ({data.contractOwner})
+                      </div>
                     </>
                   )}
                 </>
@@ -682,7 +718,9 @@ export default function App() {
               .filter((allowance: [string, BigNumber]) => allowance[1].gt(BigNumber.from(0)))
               .map((allowance: [string, number]) => (
                 <div key={allowance[0]} className='grid grid-cols-2'>
-                  <div className='mr-4 mt-4 text-right text-white'>Amount: {ethers.utils.formatUnits(allowance[1], data.contractDecimals)}</div>
+                  <div className='mr-4 mt-4 text-right text-white'>
+                    Amount: {ethers.utils.formatUnits(allowance[1], data.contractDecimals)}
+                  </div>
                   <div className='mt-4 text-left text-white'>Spender : {allowance[0]}</div>
                 </div>
               ))}
@@ -700,9 +738,7 @@ export default function App() {
                 <div className='mt-4 text-left text-white'>
                   {event.type === 'Transfer' ? 'Sender : ' + event.sender : 'Owner : ' + event.owner}
                 </div>
-                <div className='mr-4 text-right text-white'>
-                  Amount: {ethers.utils.formatUnits(event.amount, data.contractDecimals)}
-                </div>
+                <div className='mr-4 text-right text-white'>Amount: {ethers.utils.formatUnits(event.amount, data.contractDecimals)}</div>
                 <div className='text-left text-white'>
                   {event.type === 'Transfer' ? 'Recipient : ' + event.recipient : 'Spender : ' + event.spender}
                 </div>
@@ -720,41 +756,24 @@ export default function App() {
               <div key={event._id} className='grid grid-cols-2'>
                 <div className='mr-4 mt-4 text-right text-white'>Event : {event.type}</div>
                 <div className='mt-4 text-left text-white'>
-                {event.type === 'Transfer' ? 'Sender : ' + event.sender : 'Owner : ' + event.owner}
+                  {event.type === 'Transfer' ? 'Sender : ' + event.sender : 'Owner : ' + event.owner}
                 </div>
-                <div className='mr-4 text-right text-white'>
-                  Amount: {ethers.utils.formatUnits(event.amount, data.contractDecimals)}
-                </div>
+                <div className='mr-4 text-right text-white'>Amount: {ethers.utils.formatUnits(event.amount, data.contractDecimals)}</div>
                 <div className='text-left text-white'>
-                {event.type === 'Transfer' ? 'Recipient : ' + event.recipient : 'Spender : ' + event.spender}
+                  {event.type === 'Transfer' ? 'Recipient : ' + event.recipient : 'Spender : ' + event.spender}
                 </div>
               </div>
             ))}
+            <div className='grid grid-cols-2'>
+              <div></div>
+              <div className='text-primary mt-8 text-left text-xl'>Daily Volumes and number of Transfers</div>
+            </div>
+            <div className='flex justify-center'>
+              <ChartComponent volumes={events.volumes} transfers={events.transfers} />
+            </div>
           </>
         )}
       </div>
     </>
   );
 }
-
-/*
-
-const initialData = [
-	{ time: '2018-12-22', value: 32.51 },
-	{ time: '2018-12-23', value: 31.11 },
-	{ time: '2018-12-24', value: 27.02 },
-	{ time: '2018-12-25', value: 27.32 },
-	{ time: '2018-12-26', value: 25.17 },
-	{ time: '2018-12-27', value: 28.89 },
-	{ time: '2018-12-28', value: 25.46 },
-	{ time: '2018-12-29', value: 23.92 },
-	{ time: '2018-12-30', value: 22.68 },
-	{ time: '2018-12-31', value: 22.67 },
-];
-export function App(props) {
-	return (
-		<ChartComponent {...props} data={initialData}></ChartComponent>
-	);
-}
-
-*/

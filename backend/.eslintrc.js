@@ -22,9 +22,7 @@ module.exports = {
         extensions: ['.js', '.ts'],
       },
       alias: {
-        map: [
-          ['@src', './src'],
-        ],
+        map: [['@src', './src']],
         extensions: ['.js', '.ts'],
       },
     },

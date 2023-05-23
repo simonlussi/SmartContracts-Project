@@ -1,51 +1,96 @@
 import { createChart, ColorType } from 'lightweight-charts';
 import React, { useEffect, useRef } from 'react';
 
+interface ChartDataPoint {
+  time: string;
+  value: number;
+}
 
-export const ChartComponent = (data: any[]) => {
-	const colors = {
-    backgroundColor: 'white',
+interface Props {
+  volumes: ChartDataPoint[];
+  transfers: ChartDataPoint[];
+}
+
+const ChartComponent = (props: Props) => {
+  const colors = {
+    backgroundColor: '#202020',
     lineColor: '#2962FF',
-    textColor: 'black',
-    areaTopColor: '#2962FF',
-    areaBottomColor: 'rgba(41, 98, 255, 0.28)',
+    barColor: '#DC3545',
+    textColor: 'white',
   };
 
-	const chartContainerRef = useRef(null);
+  const chartContainerRef = useRef(null);
 
-	useEffect(
-		() => {
-			const handleResize = () => {
-				chart.applyOptions({ width: chartContainerRef?.current.clientWidth });
-			};
+  useEffect(() => {
+    const { volumes, transfers } = props;
+    const handleResize = () => {
+      chart.applyOptions({ width: chartContainerRef?.current.clientWidth });
+    };
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: colors.backgroundColor },
+        textColor: colors.textColor,
+      },
+      width: chartContainerRef?.current.clientWidth,
+      height: chartContainerRef?.current.clientHeight,
+      grid: {
+        vertLines: {
+          visible: false,
+        },
+        horzLines: {
+          visible: false,
+        },
+      },
+      leftPriceScale: {
+        visible: true,
+        textColor: colors.barColor,
+        scaleMargins: {
+          bottom: 0,
+        },
+      },
+      rightPriceScale: {
+        visible: true,
+        textColor: colors.lineColor,
+        scaleMargins: {
+          bottom: 0,
+        },
+      },
+      crosshair: {
+        mode: 1,
+      },
+      timeScale: {
+        visible: true,
+      },
+    });
 
-			const chart = createChart(chartContainerRef.current, {
-				layout: {
-					background: { type: ColorType.Solid, color: colors.backgroundColor },
-					textColor: colors.textColor,
-				},
-				width: chartContainerRef?.current.clientWidth,
-				height: 300,
-			});
-			chart.timeScale().fitContent();
+    const transferSeries = chart.addHistogramSeries({
+      color: colors.barColor,
+      priceScaleId: 'left',
+    });
+    transferSeries.setData(transfers);
 
-			const newSeries = chart.addAreaSeries({ lineColor: colors.lineColor, topColor: colors.areaTopColor, bottomColor: colors.areaBottomColor });
-			newSeries.setData(data);
+    const volumeSeries = chart.addLineSeries({
+      color: colors.lineColor,
+      priceScaleId: 'right',
+      priceFormat: {
+        type: 'custom',
+        formatter: (price: number) => Intl.NumberFormat().format(price),
+      },
+    });
+    volumeSeries.setData(volumes);
 
-			window.addEventListener('resize', handleResize);
+    chart.timeScale().fitContent();
 
-			return () => {
-				window.removeEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize);
 
-				chart.remove();
-			};
-		},
-		[data, colors]
-	);
+    return () => {
+      window.removeEventListener('resize', handleResize);
 
-	return (
-		<div
-			ref={chartContainerRef}
-		/>
-	);
+      chart.remove();
+    };
+  }, [props, colors]);
+
+  return <div className='h-[500px] w-3/4' ref={chartContainerRef} />;
 };
+
+export default ChartComponent;

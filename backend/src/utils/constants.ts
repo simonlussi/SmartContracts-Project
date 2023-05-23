@@ -16,7 +16,7 @@ let MAX_BLOCKS = 1000;
 let MAX_QUERIES_PER_MINUTE = 150;
 let MAX_QUERIES_PER_SECOND = 5;
 
-if (process.env.PROVIDER === 'alchemy'){
+if (process.env.PROVIDER === 'alchemy') {
   RPC_PROVIDER = `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
   MAX_BLOCKS = 999999999;
   MAX_QUERIES_PER_MINUTE = 18000;
@@ -28,7 +28,7 @@ if (process.env.PROVIDER === 'alchemy'){
   MAX_QUERIES_PER_SECOND = 40;
 }
 
-const UPDATE_INTERVALL_MINUTES = parseInt(process.env.UPDATE_INTERVALL_MINUTES ||'') || 30;
+const UPDATE_INTERVALL_MINUTES = parseInt(process.env.UPDATE_INTERVALL_MINUTES || '') || 30;
 
 export {
   CONTRACT_ADDRESS,
@@ -42,5 +42,5 @@ export {
   MAX_BLOCKS,
   MAX_QUERIES_PER_MINUTE,
   MAX_QUERIES_PER_SECOND,
-  UPDATE_INTERVALL_MINUTES
-}
+  UPDATE_INTERVALL_MINUTES,
+};

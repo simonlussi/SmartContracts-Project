@@ -22,7 +22,7 @@ services:
       target: development
       dockerfile: ./Dockerfile
     env_file:
-      - ./backend/.env
+      - ./backend/.env.dev
     ports:
       - 3000:3000
     networks:

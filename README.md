@@ -28,27 +28,38 @@ Mini-project to learn about smart-contracts
 - plusieurs commande GET pour obtenir les données (allowance, liste des transfers, ... )
 - pas de commande POST/PUT, le backend s'update tout seul. ce n'est pas grave si les données ne sont pas a jour et sont en retard de 30min.
 - fais partir de l'update au demarrage et a chaque minute
-        -> analyse du volume journalier des transfer d'BUSD, via le listing des pasts event "transfer"
-        -> graph du volume dans le front (nombre de transfer et quantité transférée chaque jour)
+- analyse du volume journalier des transfer d'BUSD, via le listing des pasts event "transfer"
+- graph du volume dans le front (nombre de transfer et quantité transférée chaque jour)
 
 ## Frontend
 
 The Frontend is in the `frontend`sub-directory
 
+## Backend
+
+The backend is available in the `backend` sub-directory
+
 ### Development
 
 Move into the frontend directory
 
-create `webpack.secrets.dev.js` and `webpack.secrets.prod.js` and put the API keys (refer to `webpack.secrets.example.js`) 
+create `webpack.secrets.dev.js` and `webpack.secrets.prod.js` and put the Backend URL (in dev: should be http://127.0.0.1:3000) (refer to `webpack.secrets.example.js`) 
 
-- install: `npm install`
-- develop: `npm start`
-- lint: `npm run lint:check && npm run lint:fix`
+Move into the backend directory
+
+create `.env.dev` and `.env.prod` and put the API key for the RPC Providers and the update intervall  (refer to `.env.example`) 
+
+From the main directory run:
+- start: `make build-dev`
+- stop: `make stop-dev`
+- clean database: `make clean`
 
 ### Production
 
--build: `npm run build`
-- serve: `npm run serve`
+From the main directory run:
+- start: `make build`
+- stop: `make stop`
+- clean database: `make clean`
 
 ### Documentation and tutorial
 
@@ -67,6 +78,4 @@ create `webpack.secrets.dev.js` and `webpack.secrets.prod.js` and put the API ke
 - Ethers equivalent of web3 getPastEvents [Link here](https://github.com/ethers-io/ethers.js/issues/52)
 - Ethers queryFilter iterate through blocks [Link here](https://ethereum.stackexchange.com/questions/107590/contract-queryfilterfilter-giving-me-errors-in-ethers-js)
 
-## Backend
 
-The backend is available in the `backend` sub-directory
