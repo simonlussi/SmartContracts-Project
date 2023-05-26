@@ -34,6 +34,4 @@ COPY ./webpack.*.prod.js ./
 
 ENV PATH /usr/app/node_modules/.bin:$PATH
 
-RUN npm run build
-
 EXPOSE 80

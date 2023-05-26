@@ -1,7 +1,7 @@
 import mongoose, { AnyObject } from 'mongoose';
 import { BigNumber } from 'ethers';
 
-const mongoURI = 'mongodb://smart-contracts-database/smart-contracts';
+const mongoURI = 'mongodb://127.0.0.1/smart-contracts';
 mongoose.set('autoIndex', true);
 mongoose.Promise = Promise;
 
